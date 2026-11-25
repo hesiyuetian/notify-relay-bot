@@ -1,4 +1,4 @@
-# github-trending-push
+# notify-relay-bot
 
 每天北京时间 22:00 抓取 [GitHub Trending](https://github.com/trending?since=daily)，按 **今日涨星数** 排序取前 10，推送到 Telegram Bot 和邮箱。每条包含：仓库名、说明、仓库地址、今日涨星、总星数、语言。
 
@@ -14,19 +14,19 @@ GitHub 没有 Trending 官方 API，所以脚本解析 Trending 页面（约 25 
 1. 新建一个 GitHub 仓库（私有也行），把本目录全部推上去。
 2. 仓库 → **Settings → Secrets and variables → Actions → New repository secret**，添加：
 
-| Secret | 说明 |
-| --- | --- |
-| `TELEGRAM_BOT_TOKEN` | 找 [@BotFather](https://t.me/BotFather) 发 `/newbot` 拿到 |
-| `TELEGRAM_CHAT_ID` | 多人用英文逗号分隔，如 `121321,4345345`。获取方式：先给你的 bot 发一条消息，然后打开 `https://api.telegram.org/bot<TOKEN>/getUpdates`，看 `chat.id` |
-| `SMTP_HOST` | Gmail: `smtp.gmail.com` · QQ 邮箱: `smtp.qq.com` · 163: `smtp.163.com` |
-| `SMTP_PORT` | 可不填，默认 `465` (SSL) |
-| `SMTP_USER` | 发件邮箱地址 |
-| `SMTP_PASS` | **不是登录密码**：Gmail 用「应用专用密码」，QQ/163 用「SMTP 授权码」 |
-| `MAIL_TO` | 收件地址，多个用英文逗号分隔，每人单独发一封（互相看不到对方地址） |
-| `FEISHU_WEBHOOK_URL` | 可选，飞书群自定义机器人的 Webhook 地址 |
-| `FEISHU_WEBHOOK_SECRET` | 使用机器人签名校验时填写机器人的签名密钥 |
-| `ANTHROPIC_API_KEY` | 可选，AI 要闻和潜力股 AI 选股用 Claude。在 [Claude Console](https://platform.claude.com) 创建，按用量单独计费，和 Claude Pro 订阅无关 |
-| `OPENAI_API_KEY` | 可选，AI 要闻和潜力股 AI 选股用 ChatGPT。在 [OpenAI Platform](https://platform.openai.com) 创建，同样和 ChatGPT Plus 订阅无关 |
+| Secret                  | 说明                                                                                                                                                |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TELEGRAM_BOT_TOKEN`    | 找 [@BotFather](https://t.me/BotFather) 发 `/newbot` 拿到                                                                                           |
+| `TELEGRAM_CHAT_ID`      | 多人用英文逗号分隔，如 `121321,4345345`。获取方式：先给你的 bot 发一条消息，然后打开 `https://api.telegram.org/bot<TOKEN>/getUpdates`，看 `chat.id` |
+| `SMTP_HOST`             | Gmail: `smtp.gmail.com` · QQ 邮箱: `smtp.qq.com` · 163: `smtp.163.com`                                                                              |
+| `SMTP_PORT`             | 可不填，默认 `465` (SSL)                                                                                                                            |
+| `SMTP_USER`             | 发件邮箱地址                                                                                                                                        |
+| `SMTP_PASS`             | **不是登录密码**：Gmail 用「应用专用密码」，QQ/163 用「SMTP 授权码」                                                                                |
+| `MAIL_TO`               | 收件地址，多个用英文逗号分隔，每人单独发一封（互相看不到对方地址）                                                                                  |
+| `FEISHU_WEBHOOK_URL`    | 可选，飞书群自定义机器人的 Webhook 地址                                                                                                             |
+| `FEISHU_WEBHOOK_SECRET` | 使用机器人签名校验时填写机器人的签名密钥                                                                                                            |
+| `ANTHROPIC_API_KEY`     | 可选，AI 要闻和潜力股 AI 选股用 Claude。在 [Claude Console](https://platform.claude.com) 创建，按用量单独计费，和 Claude Pro 订阅无关               |
+| `OPENAI_API_KEY`        | 可选，AI 要闻和潜力股 AI 选股用 ChatGPT。在 [OpenAI Platform](https://platform.openai.com) 创建，同样和 ChatGPT Plus 订阅无关                       |
 
 3. 打开 **Actions** 标签 → 选「GitHub 今日涨星推送」→ **Run workflow** 手动跑一次，确认收到。之后每天自动执行。「AI 圈每日要闻推送」「每日潜力股推送」同理，潜力股手动运行时会跳过交易日判断并立即推送。
 
@@ -52,7 +52,7 @@ node --env-file=.env dist/telegram-email/main.js --test-feishu
 - **测试到达**：在 Actions 选择「Telegram 频道邮件转发」，运行默认的 `test`，会把最新一条发到 `MAIL_TO`，标题带「[测试]」。本地只预览可用 `npm run telegram-email:dry-run`。
 - **个人微信**：在 [Server酱 Turbo](https://sct.ftqq.com/sendkey/) 登录，在「消息通道」绑定方糖服务号。将 SendKey 保存为本仓库的 Actions Secret `SERVERCHAN_SENDKEY`，然后在同一工作流选择 `test-wechat`，确认微信收到带「[测试]」的最新帖。该测试只占用一次微信发送额度，独立于正式进度。
 - 微信首次启用时从当前最新帖开始，之后每条新帖都发给个人微信。邮箱和微信分别记录进度，发送失败时保留该渠道的待发帖子。Server酱接受请求后进度才会推进。免费版每天 5 条，日额度用尽后可能积压；服务返回限流时会延后重试。[服务额度与限制](https://sct.ftqq.com/docs/getting-started/faq/)
-- **每分钟检查**：在 [cron-job.org 控制台](https://console.cron-job.org/) 复制本仓库已有的定时推送任务，名称改为「熬鹰频道转邮箱」，URL 改为 `https://api.github.com/repos/hesiyuetian/ai-bot/actions/workflows/telegram-email.yml/dispatches`，周期选择 **Every minute**（`* * * * *`）。保留原有 GitHub 授权请求头、POST 方法，正文设为 `{"ref":"main","inputs":{"mode":"scheduled"}}`。启用后可在任务历史中查看每次调用结果，在 GitHub Actions 查看实际检查和发送结果。
+- **每分钟检查**：在 [cron-job.org 控制台](https://console.cron-job.org/) 复制本仓库已有的定时推送任务，名称改为「熬鹰频道转邮箱」，URL 改为 `https://api.github.com/repos/hesiyuetian/ai-bot/actions/workflows/telegram-email.yml/dispatches`，周期选择 **Every minute**（`* * * * `\*）。保留原有 GitHub 授权请求头、POST 方法，正文设为 `{"ref":"main","inputs":{"mode":"scheduled"}}`。启用后可在任务历史中查看每次调用结果，在 GitHub Actions 查看实际检查和发送结果。
 - **正式运行**：每次调用检查一次。GitHub 自带计划每 5 分钟兜底，两个入口共用进度。调度排队、网络或发信耗时可能使实际到达超过一分钟。每个新收件人从首次检查时的最新帖开始，后续按编号从旧到新补发。频道编辑和删除不会触发邮件。
 - **发送进度**：Actions 自动创建 `telegram-email-state` 独立分支，需允许工作流向该分支写入。进度库保存收件人地址哈希和帖子编号。并发任务排队；某个邮箱发送失败会在下次检查时重试。如果 SMTP 已接受邮件后任务突然中止，或保存分支失败，下次可能重复发送。
 - **本地运行**：在常开设备上先执行 `npm run build`，再用系统定时器每分钟从项目根目录运行一次 `node --env-file=.env dist/telegram-email/main.js`。保留本地 `.telegram-email/` 目录。请在 Actions 和本地之间选一个正式运行位置，各自的进度独立。
@@ -61,12 +61,12 @@ node --env-file=.env dist/telegram-email/main.js --test-feishu
 
 Actions 自带的定时任务不保证准点，高峰期可能延迟几个小时甚至被跳过，所以推送由 [cron-job.org](https://cron-job.org)（免费）到点调 GitHub API 触发，几十秒内就会开始运行。自带的定时任务保留作兜底：
 
-| 工作流 | cron-job.org 触发（北京时间） | Actions 兜底 |
-| --- | --- | --- |
-| `telegram-email.yml` 熬鹰频道邮件 | 每分钟 | 每 5 分钟 |
-| `daily.yml` GitHub 今日涨星 | 每天 22:00 | 22:17 |
-| `ai-news.yml` AI 圈每日要闻 | 每天 08:00 | 08:17 |
-| `stocks.yml` 每日潜力股 | 周一到周五 09:00（09:20 推送） | 09:10 |
+| 工作流                            | cron-job.org 触发（北京时间）  | Actions 兜底 |
+| --------------------------------- | ------------------------------ | ------------ |
+| `telegram-email.yml` 熬鹰频道邮件 | 每分钟                         | 每 5 分钟    |
+| `daily.yml` GitHub 今日涨星       | 每天 22:00                     | 22:17        |
+| `ai-news.yml` AI 圈每日要闻       | 每天 08:00                     | 08:17        |
+| `stocks.yml` 每日潜力股           | 周一到周五 09:00（09:20 推送） | 09:10        |
 
 同一工作流的运行按并发组排队。频道邮件按每个收件人的帖子编号去重。其他三个工作流发现 12 小时内已成功推送就跳过（判断逻辑在 `already-pushed.yml`）。
 
@@ -74,9 +74,9 @@ Actions 自带的定时任务不保证准点，高峰期可能延迟几个小时
 
 1. GitHub 头像 → **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**：Repository access 只选本仓库，Permissions 里 **Actions** 选 **Read and write**，其他不给，有效期 1 年（到期前 GitHub 会邮件提醒）。这些任务共用这一个 token。
 2. 在 cron-job.org 注册后，按上表每个工作流 **Create cronjob** 一次：
-   - URL：`https://api.github.com/repos/<用户名>/<仓库名>/actions/workflows/<工作流文件名>/dispatches`
-   - Schedule：按上表时间，时区选 **Asia/Shanghai**
-   - Advanced：Request method 选 **POST**；Headers 加 `Authorization: Bearer <token>` 和 `Accept: application/vnd.github+json`；Request body 填 `{"ref":"main","inputs":{"mode":"scheduled"}}`
+    - URL：`https://api.github.com/repos/<用户名>/<仓库名>/actions/workflows/<工作流文件名>/dispatches`
+    - Schedule：按上表时间，时区选 **Asia/Shanghai**
+    - Advanced：Request method 选 **POST**；Headers 加 `Authorization: Bearer <token>` 和 `Accept: application/vnd.github+json`；Request body 填 `{"ref":"main","inputs":{"mode":"scheduled"}}`
 3. 保存后点 **Test run**，返回 204 即成功，Actions 页面会出现一条以「（定时）」结尾的运行。
 
 在 Actions 页面手动点 **Run workflow** 默认是 `test` 模式：立即推送（潜力股还会跳过交易日判断），运行名以「（测试）」结尾，不影响正式推送的防重复判断。
@@ -172,24 +172,25 @@ npm test
 工作流 `.github/workflows/ai-news.yml` 每天 08:00 运行：
 
 1. **抓取**过去 24 小时的内容（论文 48 小时）：
-   - 官方博客：OpenAI、Google DeepMind、Google AI、Hugging Face
-   - 媒体：TechCrunch AI、量子位
-   - 社区：Hacker News 上 80 分以上的 AI 相关帖子
-   - 论文：Hugging Face Daily Papers（带点赞数）
+    - 官方博客：OpenAI、Google DeepMind、Google AI、Hugging Face
+    - 媒体：TechCrunch AI、量子位
+    - 社区：Hacker News 上 80 分以上的 AI 相关帖子
+    - 论文：Hugging Face Daily Papers（带点赞数）
 
-   Anthropic 官网没有 RSS、机器之心 RSS 已下线、Reddit 拒绝脚本访问，所以没有收录。某个源挂了只会跳过它。
+    Anthropic 官网没有 RSS、机器之心 RSS 已下线、Reddit 拒绝脚本访问，所以没有收录。某个源挂了只会跳过它。
+
 2. **合并打分**：同一事件被多个来源报道会合并（按链接和标题相似度），按来源权重 + HN 分数 / 论文点赞 + 报道家数打分。
 3. **AI 挑选和总结**：把前 40 个事件交给 AI，选出最重要的 10 条，写中文标题、一句话摘要和「为什么值得关注」，并分为模型/产品发布、行业/公司动态、论文、开源/工具、社区热议。
-   - 配了 `ANTHROPIC_API_KEY` 先用 Claude，配了 `OPENAI_API_KEY` 用 ChatGPT；两个都配时一个失败会自动换另一个。
-   - 都没配或都失败时退回**规则排序**：按分数取前 10（每类最多 4 条），标题和简介用 Google 翻译成中文，没有点评。
+    - 配了 `ANTHROPIC_API_KEY` 先用 Claude，配了 `OPENAI_API_KEY` 用 ChatGPT；两个都配时一个失败会自动换另一个。
+    - 都没配或都失败时退回**规则排序**：按分数取前 10（每类最多 4 条），标题和简介用 Google 翻译成中文，没有点评。
 
 可选的 Actions **Variables**（Settings → Secrets and variables → Actions → Variables）：
 
-| Variable | 说明 |
-| --- | --- |
-| `AI_PROVIDER` | 设为 `openai` 则优先用 ChatGPT，默认优先 Claude |
-| `ANTHROPIC_MODEL` | 默认 `claude-sonnet-5-5` |
-| `OPENAI_MODEL` | 默认 `gpt-5-mini` |
+| Variable          | 说明                                                                                                                                                 |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AI_PROVIDER`     | 设为 `openai` 则优先用 ChatGPT，默认优先 Claude                                                                                                      |
+| `ANTHROPIC_MODEL` | 默认 `claude-sonnet-5-5`                                                                                                                             |
+| `OPENAI_MODEL`    | 默认 `gpt-5-mini`                                                                                                                                    |
 | `OPENAI_BASE_URL` | 默认 `https://api.openai.com/v1`。填其他兼容 OpenAI 接口的服务地址（如 DeepSeek、通义千问）也能用，`OPENAI_API_KEY` 和 `OPENAI_MODEL` 换成对应服务的 |
 
 数量用 `NEWS_COUNT` 调整，默认 10。
@@ -209,15 +210,15 @@ npm test
 
 **逐级筛选**：严格档不足推送数量（默认 10 只）时，按下表依次补充；严格档优先，同档按量化得分排序，只放宽到够用为止，不为凑满 30 只 AI 候选而继续降低标准。
 
-| 条件 | 严格筛选 | 放宽筛选 | 观察候选 |
-| --- | --- | --- | --- |
-| 股价 / 总市值 | ≥ 3 元 / ≥ 50 亿 | ≥ 2 元 / ≥ 20 亿 | ≥ 1 元 / ≥ 10 亿 |
-| 成交额 | ≥ 3 亿 | ≥ 1 亿 | 允许不足或盘前清零、缺失，标明量能无法验证 |
-| 主力资金 | 净流入 > 0，净占比完整 | 净流入 > 0，净占比完整 | 允许清零、缺失或净流出，标明无法验证或净流出 |
-| 涨跌幅 | > 0 且 < 9.5% | > -3% 且 < 9.5% | > -5% 且 < 9.5% |
-| 近 5 日涨幅 | ≤ 25% | ≤ 35% | ≤ 40% |
-| 市盈率 | > 0 且 ≤ 200 | > 0 且 ≤ 300 | > 0 且 ≤ 300 |
-| 量比 / 换手率等 | 必须完整 | 必须完整 | 允许缺失，缺失项不加分 |
+| 条件            | 严格筛选               | 放宽筛选               | 观察候选                                     |
+| --------------- | ---------------------- | ---------------------- | -------------------------------------------- |
+| 股价 / 总市值   | ≥ 3 元 / ≥ 50 亿       | ≥ 2 元 / ≥ 20 亿       | ≥ 1 元 / ≥ 10 亿                             |
+| 成交额          | ≥ 3 亿                 | ≥ 1 亿                 | 允许不足或盘前清零、缺失，标明量能无法验证   |
+| 主力资金        | 净流入 > 0，净占比完整 | 净流入 > 0，净占比完整 | 允许清零、缺失或净流出，标明无法验证或净流出 |
+| 涨跌幅          | > 0 且 < 9.5%          | > -3% 且 < 9.5%        | > -5% 且 < 9.5%                              |
+| 近 5 日涨幅     | ≤ 25%                  | ≤ 35%                  | ≤ 40%                                        |
+| 市盈率          | > 0 且 ≤ 200           | > 0 且 ≤ 300           | > 0 且 ≤ 300                                 |
+| 量比 / 换手率等 | 必须完整               | 必须完整               | 允许缺失，缺失项不加分                       |
 
 所有档位仍排除 ST / 退市股、已知上市不满 120 天的新股、N/C 新股，以及价格、市值、涨跌幅或市盈率等核心行情无效的股票；同一行业最多 2 只。未知上市日期仍按原规则结合名称判断，无法保证排除所有次新股。放宽档和观察档会逐只标注原因，观察候选不代表满足原来的资金与量价条件。
 
