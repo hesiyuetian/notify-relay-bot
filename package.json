@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "description": "每天推送 GitHub 今日涨星、AI 圈要闻，交易日早盘推送潜力股，到 Telegram 和邮箱",
-  "engines": { "node": ">=22.18" },
+  "engines": {
+    "node": ">=22.18"
+  },
   "scripts": {
     "start": "node src/github-trending/main.ts",
     "dry-run": "node src/github-trending/main.ts --dry-run",
@@ -12,9 +14,12 @@
     "stocks:dry-run": "node src/stocks/main.ts --dry-run",
     "ai-news": "node src/ai-news/main.ts",
     "ai-news:dry-run": "node src/ai-news/main.ts --dry-run",
+    "telegram-email": "node src/telegram-email/main.ts",
+    "telegram-email:dry-run": "node src/telegram-email/main.ts --dry-run",
     "test": "node --test \"test/**/*.test.ts\""
   },
   "dependencies": {
+    "linkedom": "^0.18.15",
     "nodemailer": "^6.9.16"
   },
   "devDependencies": {

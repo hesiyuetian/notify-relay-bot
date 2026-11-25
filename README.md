@@ -30,21 +30,32 @@ GitHub 没有 Trending 官方 API，所以脚本解析 Trending 页面（约 25 
 
 只配了 Telegram 或只配了邮箱也可以，没配的渠道会自动跳过。
 
+## 熬鹰 Telegram 频道转邮箱
+
+`telegram-email.yml` 读取 [@aoying999 公开预览](https://t.me/s/aoying999)，每条新帖发一封邮件。收件人沿用 `MAIL_TO`，转发多个地址时分别投递。发件使用上表的 SMTP 配置。邮件包含频道发布时间（北京时间）、正文和原帖链接，纯媒体帖通过原帖查看。
+
+- **测试到达**：在 Actions 选择「熬鹰频道邮件转发」，运行默认的 `test`，会把最新一条发到 `MAIL_TO`，标题带「[测试]」。本地只预览可用 `npm run telegram-email:dry-run`。
+- **每分钟检查**：在 [cron-job.org 控制台](https://console.cron-job.org/) 复制本仓库已有的定时推送任务，名称改为「熬鹰频道转邮箱」，URL 改为 `https://api.github.com/repos/hesiyuetian/ai-bot/actions/workflows/telegram-email.yml/dispatches`，周期选择 **Every minute**（`* * * * *`）。保留原有 GitHub 授权请求头、POST 方法，正文设为 `{"ref":"main","inputs":{"mode":"scheduled"}}`。启用后可在任务历史中查看每次调用结果，在 GitHub Actions 查看实际检查和发送结果。
+- **正式运行**：每次调用检查一次。GitHub 自带计划每 5 分钟兜底，两个入口共用进度。调度排队、网络或发信耗时可能使实际到达超过一分钟。每个新收件人从首次检查时的最新帖开始，后续按编号从旧到新补发。频道编辑和删除不会触发邮件。
+- **发送进度**：Actions 自动创建 `telegram-email-state` 独立分支，需允许工作流向该分支写入。进度库保存收件人地址哈希和帖子编号。并发任务排队；某个邮箱发送失败会在下次检查时重试。如果 SMTP 已接受邮件后任务突然中止，或保存分支失败，下次可能重复发送。
+- **本地运行**：在常开设备上可用系统定时器每分钟从项目根目录运行一次 `node --env-file=.env src/telegram-email/main.ts`。保留本地 `.telegram-email/` 目录。请在 Actions 和本地之间选一个正式运行位置，各自的进度独立。
+
 ## 准点触发（cron-job.org）
 
-Actions 自带的定时任务不保证准点，高峰期可能延迟几个小时甚至被跳过，所以三个推送都由 [cron-job.org](https://cron-job.org)（免费）到点调 GitHub API 触发，几十秒内就会开始运行。自带的定时任务保留作兜底：
+Actions 自带的定时任务不保证准点，高峰期可能延迟几个小时甚至被跳过，所以推送由 [cron-job.org](https://cron-job.org)（免费）到点调 GitHub API 触发，几十秒内就会开始运行。自带的定时任务保留作兜底：
 
 | 工作流 | cron-job.org 触发（北京时间） | Actions 兜底 |
 | --- | --- | --- |
+| `telegram-email.yml` 熬鹰频道邮件 | 每分钟 | 每 5 分钟 |
 | `daily.yml` GitHub 今日涨星 | 每天 22:00 | 22:17 |
 | `ai-news.yml` AI 圈每日要闻 | 每天 08:00 | 08:17 |
 | `stocks.yml` 每日潜力股 | 周一到周五 09:00（09:20 推送） | 09:10 |
 
-两边都会运行：同一工作流的运行会排队依次执行，后运行的发现 12 小时内已成功推送就跳过（判断逻辑在 `already-pushed.yml`）。
+同一工作流的运行按并发组排队。频道邮件按每个收件人的帖子编号去重。其他三个工作流发现 12 小时内已成功推送就跳过（判断逻辑在 `already-pushed.yml`）。
 
 配置一次即可：
 
-1. GitHub 头像 → **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**：Repository access 只选本仓库，Permissions 里 **Actions** 选 **Read and write**，其他不给，有效期 1 年（到期前 GitHub 会邮件提醒）。三个任务共用这一个 token。
+1. GitHub 头像 → **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**：Repository access 只选本仓库，Permissions 里 **Actions** 选 **Read and write**，其他不给，有效期 1 年（到期前 GitHub 会邮件提醒）。这些任务共用这一个 token。
 2. 在 cron-job.org 注册后，按上表每个工作流 **Create cronjob** 一次：
    - URL：`https://api.github.com/repos/<用户名>/<仓库名>/actions/workflows/<工作流文件名>/dispatches`
    - Schedule：按上表时间，时区选 **Asia/Shanghai**
@@ -154,6 +165,7 @@ src/
   github-trending/  GitHub 今日涨星：抓取、翻译、排版、入口 main.ts
   ai-news/          AI 圈要闻：抓取、合并打分、AI 总结、排版、入口 main.ts
     sources/        RSS、Hacker News、HF Daily Papers
+  telegram-email/   熬鹰频道公开页读取、逐收件人进度和邮件转发
   stocks/           每日潜力股：交易日历、筛选打分、排版、入口 main.ts
     sources/        行情数据源：东方财富、新浪 + 腾讯（备用）
 test/               与 src 同结构

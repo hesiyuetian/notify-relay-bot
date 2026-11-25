@@ -1,0 +1,69 @@
+name: 熬鹰频道邮件转发
+run-name: ${{ (github.event_name == 'schedule' || inputs.mode == 'scheduled') && '熬鹰频道邮件转发（定时）' || '熬鹰频道邮件转发（测试）' }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "test 发送最新一条测试邮件，scheduled 检查一次新帖（cron-job.org 每分钟调用）"
+        type: choice
+        options: [test, scheduled]
+        default: test
+  # 主触发为 cron-job.org 每分钟一次。此计划只作兜底，两种触发共用投递进度。
+  schedule:
+    - cron: "2-59/5 * * * *"
+
+concurrency:
+  group: telegram-email-aoying999
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  forward:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: npm install --omit=dev --no-audit --no-fund
+      - run: npm test
+      - name: 读取独立分支中的投递进度
+        id: state
+        if: github.event_name == 'schedule' || inputs.mode == 'scheduled'
+        run: |
+          ref=refs/heads/telegram-email-state
+          remote_ref=$(git ls-remote --heads origin "$ref")
+          if [[ -n "$remote_ref" ]]; then
+            git fetch --depth=1 origin "$ref"
+            git worktree add --detach .telegram-email FETCH_HEAD
+            test -s .telegram-email/aoying999.sqlite
+          else
+            git worktree add --orphan -b telegram-email-state .telegram-email
+          fi
+      - name: 发送邮件
+        env:
+          MODE: ${{ github.event_name == 'schedule' && 'scheduled' || inputs.mode }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+        run: |
+          if [[ "$MODE" == "test" ]]; then
+            npm run telegram-email -- --test-email
+          else
+            npm run telegram-email
+          fi
+      - name: 保存投递进度（含部分成功）
+        if: always() && steps.state.outcome == 'success'
+        working-directory: .telegram-email
+        run: |
+          if [[ ! -s aoying999.sqlite ]]; then exit 0; fi
+          git add -- aoying999.sqlite
+          if git diff --cached --quiet; then exit 0; fi
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m '保存频道邮件投递进度'
+          git push origin HEAD:refs/heads/telegram-email-state

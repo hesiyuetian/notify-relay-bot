@@ -1,6 +1,6 @@
 import { describeError } from "./async.ts";
 import { splitList } from "./list.ts";
-import { sendEmail, sendTelegram } from "./notify.ts";
+import { type MailConfig, sendEmail, sendTelegram } from "./notify.ts";
 
 const DEFAULT_SMTP_PORT = 465;
 
@@ -31,6 +31,16 @@ const runChannel = async (channel: Channel): Promise<void> => {
 const recipientName = (channel: string, index: number, total: number): string =>
   total > 1 ? `${channel} (${index + 1}/${total})` : channel;
 
+export const configuredMailboxes = (): MailConfig[] => {
+  const host = env("SMTP_HOST");
+  const user = env("SMTP_USER");
+  const pass = env("SMTP_PASS");
+  const recipients = splitList(env("MAIL_TO"));
+  if (!host || !user || !pass) return [];
+  const port = Number(env("SMTP_PORT") ?? DEFAULT_SMTP_PORT);
+  return recipients.map((to) => ({ host, port, user, pass, to }));
+};
+
 const buildChannels = (message: Message): Channel[] => {
   const channels: Channel[] = [];
 
@@ -47,16 +57,12 @@ const buildChannels = (message: Message): Channel[] => {
     console.warn("⚠️ 未配置 TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID，跳过 Telegram");
   }
 
-  const host = env("SMTP_HOST");
-  const user = env("SMTP_USER");
-  const pass = env("SMTP_PASS");
-  const recipients = splitList(env("MAIL_TO"));
-  if (host && user && pass && recipients.length > 0) {
-    const port = Number(env("SMTP_PORT") ?? DEFAULT_SMTP_PORT);
+  const mailboxes = configuredMailboxes();
+  if (mailboxes.length > 0) {
     channels.push(
-      ...recipients.map((to, index) => ({
-        name: recipientName("邮件", index, recipients.length),
-        send: () => sendEmail({ host, user, pass, port, to }, message.subject, message.email, message.text),
+      ...mailboxes.map((config, index) => ({
+        name: recipientName("邮件", index, mailboxes.length),
+        send: () => sendEmail(config, message.subject, message.email, message.text),
       })),
     );
   } else {
