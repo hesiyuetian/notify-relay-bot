@@ -1,0 +1,13 @@
+# User crontab (crontab -e). Set APP_DIR and NODE_BIN to absolute paths on the server.
+# Times below are Beijing time. Use Cronie with CRON_TZ, or a cron daemon running in Asia/Shanghai.
+CRON_TZ=Asia/Shanghai
+APP_DIR=/opt/ai-bot
+NODE_BIN=/usr/bin/node
+PATH=/usr/local/bin:/usr/bin:/bin
+
+* * * * * "$APP_DIR/deploy/run-task.sh" telegram-email >> "$APP_DIR/.cron/tasks.log" 2>&1
+0 22 * * * "$APP_DIR/deploy/run-task.sh" github-trending >> "$APP_DIR/.cron/tasks.log" 2>&1
+
+# Currently paused. Uncomment individual lines to enable them on this server.
+# 0 8 * * * "$APP_DIR/deploy/run-task.sh" ai-news >> "$APP_DIR/.cron/tasks.log" 2>&1
+# 0 9 * * 1-5 "$APP_DIR/deploy/run-task.sh" stocks >> "$APP_DIR/.cron/tasks.log" 2>&1

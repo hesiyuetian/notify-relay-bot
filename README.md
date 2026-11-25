@@ -67,6 +67,53 @@ Actions 自带的定时任务不保证准点，高峰期可能延迟几个小时
 
 在 Actions 页面手动点 **Run workflow** 默认是 `test` 模式：立即推送（潜力股还会跳过交易日判断），运行名以「（测试）」结尾，不影响正式推送的防重复判断。
 
+## 部署到 Linux 服务器（系统 cron）
+
+服务器 cron 和 GitHub Actions 共用四个 `src/<任务>/main.ts` 入口。每个任务可以单独选运行位置，例如让服务器每分钟转发频道，GitHub Actions 继续推送每日涨星。同一任务在两端都有正式调度时，两个环境的进度独立，可能重复发信。
+
+### 首次部署
+
+准备 Node.js ≥ 22.18、系统 cron、`flock`（util-linux）和 `timeout`（GNU coreutils）。以下以部署账号有权写入的 `/opt/ai-bot` 为例。该账号负责安装依赖和运行 cron。
+
+```bash
+git clone https://github.com/hesiyuetian/ai-bot.git /opt/ai-bot
+cd /opt/ai-bot
+npm install --omit=dev --no-audit --no-fund
+umask 077
+cp -n .env.example .env
+mkdir -p .cron
+command -v node flock timeout
+node --version
+```
+
+在服务器的 `.env` 填入自己的 `MAIL_TO`、SMTP 配置、`TELEGRAM_CHANNEL` 和 `SERVERCHAN_SENDKEY` 等所需变量。GitHub Actions Secrets 只在对应工作流中注入，服务器需要单独配置。执行下面的预览命令可验证 Node 和频道网络访问。预览只打印内容。
+
+```bash
+./deploy/run-task.sh telegram-email --dry-run
+```
+
+### 定时和启停
+
+用部署账号执行 `crontab -e`，把 [服务器 crontab 模板](deploy/crontab.example) 中需要的配置追加进去。将 `APP_DIR` 改成部署目录，`NODE_BIN` 改成上一步 `command -v node` 输出的绝对路径。使用 NVM 时也填写该路径。保存后用 `crontab -l` 核对，用 `tail -f /opt/ai-bot/.cron/tasks.log` 查看运行结果。为该日志配置服务器的日志轮转。
+
+模板启用每分钟频道检查和北京时间 22:00 的 GitHub 涨星。AI 要闻和潜力股两行默认注释。恢复时取消对应注释即可。潜力股正式任务在工作日 09:00 启动，沿用交易日判断和默认 09:20 推送时间。
+
+模板按北京时间填写。`CRON_TZ` 需要 cron 守护进程支持（如 Cronie）。若服务器的 cron 使用 UTC 且不支持 `CRON_TZ`，将涨星、AI 要闻、潜力股的触发时间分别改为 **14:00、00:00、工作日 01:00 UTC**。每分钟任务无需换算。
+
+### 投递进度与切换
+
+每个服务器任务独立加锁。上一轮仍在运行时会跳过重叠触发。三个每日任务成功后在 `.cron/` 记录北京时间日期，同日再次触发会跳过。失败会返回非零状态，修复后可用同一命令重试。频道转发按 `.telegram-email/*.sqlite` 中每个频道、每个接收端的进度补发。更新代码时保留 `.env`、`.cron/` 和 `.telegram-email/`。
+
+从 GitHub 切到服务器时，先用 `--dry-run` 验证连接，再暂停对应的 cron-job.org 任务和 GitHub 工作流，等已启动的运行结束。首次迁移频道且希望接续原进度时，在启用服务器 cron **之前**，从最新状态分支导入数据库到空的状态目录：
+
+```bash
+cd /opt/ai-bot
+git fetch origin refs/heads/telegram-email-state && mkdir .telegram-email &&
+  git archive FETCH_HEAD -- '*.sqlite' | tar -x -C .telegram-email
+```
+
+以上导入用于首次迁移且尚无本地数据库的服务器。跳过导入时，首次运行从频道当前最新帖建立进度。每日任务建议在当天尚未推送时交接，或从次日开始。回切频道到 GitHub 时，先停止服务器任务，并把最终的 SQLite 文件同步回 `telegram-email-state` 分支，再恢复 GitHub 调度。
+
 ## 本地运行
 
 需要 Node.js ≥ 22.18（原生运行 TypeScript，无需编译）。
