@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
-import { formatPost, parsePage, since, type Post } from "../../src/telegram-email/channel.ts";
-import { forward } from "../../src/telegram-email/forward.ts";
+import { formatPost, parsePage, since, type Post } from "../../src/telegram-relay/channel.ts";
+import { forward } from "../../src/telegram-relay/forward.ts";
 
 const post = (id: number): Post => ({ channel: "aoying999", id, date: "2026-11-24T12:00:00Z", text: `帖子 #${id}` });
 const page = (ids: number[], before?: number) => ({ posts: ids.map(post), before });

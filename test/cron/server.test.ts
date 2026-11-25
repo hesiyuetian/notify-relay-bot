@@ -9,13 +9,13 @@ import test from "node:test";
 test("服务器 cron 在独立工作目录读取配置，加锁并按任务保存成功状态", { skip: process.platform !== "linux" }, () => {
   const dir = mkdtempSync(join(tmpdir(), "server cron "));
   try {
-    const tasks = ["telegram-email", "github-trending", "ai-news", "stocks"];
+    const entries = ["telegram-relay", "github-trending", "ai-news", "stocks"];
     mkdirSync(join(dir, "deploy"));
     const script = join(dir, "deploy/run-task.sh");
     copyFileSync(new URL("../../deploy/run-task.sh", import.meta.url), script);
     writeFileSync(join(dir, ".env"), "TEST_SERVER_ENV=loaded\n");
-    for (const task of tasks) {
-      const dist = join(dir, "dist", task);
+    for (const entry of entries) {
+      const dist = join(dir, "dist", entry);
       mkdirSync(dist, { recursive: true });
       writeFileSync(join(dist, "main.js"), `
         if (process.env.TEST_SERVER_ENV !== "loaded") process.exit(1);

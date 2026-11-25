@@ -9,6 +9,7 @@
 - 使用 `npm run build` 将源码编译到 `dist/`。npm 任务、PM2、系统 cron 和 GitHub Actions 的正式运行入口都使用编译产物。修改源码后重新编译，`dist/` 由构建生成并保持在 Git 忽略范围内。
 - 新建或调整依赖时同步更新 `package.json` 和 `pnpm-lock.yaml`。构建阶段安装开发依赖，TypeScript 编译器在 `devDependencies`。
 - 变更保持在需求范围内。调整任务名称、入口、参数、排期或配置时，核对相关的 npm 脚本、GitHub workflow、PM2 调度表、crontab 模板和 README，更新受影响的地方。
+- 新增功能或调整已有行为时，同一提交或 PR 同步更新相关文档（如 `README.md`、`.env.example`、`AGENTS.md` 等），保持功能说明、配置项、目录结构、入口命令和排期与代码一致。
 
 ## 新增服务的部署要求
 
@@ -38,7 +39,7 @@
 
 | 任务名            | GitHub workflow      | 主排期（北京时间）                   | GitHub 自带计划 |
 | ----------------- | -------------------- | ------------------------------------ | --------------- |
-| `telegram-email`  | `telegram-email.yml` | 每分钟检查                           | 每 5 分钟       |
+| `telegram-email`  | `telegram-relay.yml` | 每分钟检查                           | 每 5 分钟       |
 | `github-trending` | `daily.yml`          | 每天 22:00                           | 22:17           |
 | `ai-news`         | `ai-news.yml`        | 每天 08:00                           | 08:17           |
 | `stocks`          | `stocks.yml`         | 工作日 09:00 启动，交易日 09:20 推送 | 工作日 09:10    |

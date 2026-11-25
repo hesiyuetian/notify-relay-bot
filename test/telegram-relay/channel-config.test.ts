@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { channelUsername } from "../../src/telegram-email/channel.ts";
+import { channelUsername } from "../../src/telegram-relay/channel.ts";
 
 test("公开频道配置规范化，拒绝邀请链接、帖子链接和任意路径", () => {
   assert.equal(channelUsername(), "aoying999");
@@ -19,7 +19,7 @@ test("公开频道配置规范化，拒绝邀请链接、帖子链接和任意�
 
 test("切换频道时微信与飞书按各自进度发送，飞书测试不建立进度", () => {
   const dir = mkdtempSync(join(tmpdir(), "channel-config-"));
-  const main = fileURLToPath(new URL("../../dist/telegram-email/main.js", import.meta.url));
+  const main = fileURLToPath(new URL("../../dist/telegram-relay/main.js", import.meta.url));
   const preload = join(dir, "preview.mjs");
   try {
     writeFileSync(preload, `

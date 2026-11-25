@@ -16,8 +16,8 @@
     "stocks:dry-run": "node dist/stocks/main.js --dry-run",
     "ai-news": "node dist/ai-news/main.js",
     "ai-news:dry-run": "node dist/ai-news/main.js --dry-run",
-    "telegram-email": "node dist/telegram-email/main.js",
-    "telegram-email:dry-run": "node dist/telegram-email/main.js --dry-run",
+    "telegram-email": "node dist/telegram-relay/main.js",
+    "telegram-email:dry-run": "node dist/telegram-relay/main.js --dry-run",
     "test": "node --test \"test/**/*.test.ts\""
   },
   "dependencies": {

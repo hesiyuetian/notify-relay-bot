@@ -13,14 +13,14 @@ usage() {
 task=$1
 shift
 case "$task" in
-  github-trending|telegram-email) limit=10m ;;
-  ai-news) limit=15m ;;
-  stocks) limit=90m ;;
+  github-trending) limit=10m; entry="dist/github-trending/main.js" ;;
+  telegram-email) limit=10m; entry="dist/telegram-relay/main.js" ;;
+  ai-news) limit=15m; entry="dist/ai-news/main.js" ;;
+  stocks) limit=90m; entry="dist/stocks/main.js" ;;
   *) usage ;;
 esac
 if [ "$#" -eq 1 ] && [ "$1" != "--dry-run" ]; then usage; fi
 
-entry="dist/$task/main.js"
 [ -f "$entry" ] || { echo "缺少 $entry，请先运行 npm run build。" >&2; exit 1; }
 node_bin=${NODE_BIN:-node}
 if [ "$#" -eq 1 ]; then

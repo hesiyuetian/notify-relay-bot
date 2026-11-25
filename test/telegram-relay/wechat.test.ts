@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
-import { forward, type Recipient } from "../../src/telegram-email/forward.ts";
-import { sendWeChat } from "../../src/telegram-email/wechat.ts";
-import type { Post } from "../../src/telegram-email/channel.ts";
+import { forward, type Recipient } from "../../src/telegram-relay/forward.ts";
+import { sendWeChat } from "../../src/telegram-relay/wechat.ts";
+import type { Post } from "../../src/telegram-relay/channel.ts";
 
 const post = (id: number): Post => ({ channel: "aoying999", id, date: "2026-11-25T10:00:00Z", text: "加仓 · 测试" });
 
