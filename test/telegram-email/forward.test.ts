@@ -4,7 +4,7 @@ import test from "node:test";
 import { formatPost, parsePage, since, type Post } from "../../src/telegram-email/channel.ts";
 import { forward } from "../../src/telegram-email/forward.ts";
 
-const post = (id: number): Post => ({ id, date: "2026-11-24T12:00:00Z", text: `帖子 #${id}` });
+const post = (id: number): Post => ({ channel: "aoying999", id, date: "2026-11-24T12:00:00Z", text: `帖子 #${id}` });
 const page = (ids: number[], before?: number) => ({ posts: ids.map(post), before });
 
 test("公开预览正文保留换行和字面标签，邮件附北京时间和原帖", () => {
@@ -13,14 +13,14 @@ test("公开预览正文保留换行和字面标签，邮件附北京时间和�
       <div class="tgme_widget_message_text"><b>【熬鹰币安实盘】</b><br><br><b>减仓 · A&amp;B</b><br>&lt;script&gt;</div>
       <a class="tgme_widget_message_date"><time datetime="2026-11-24T12:00:00Z"></time></a>
     </div></section>`;
-  const parsed = parsePage(markup);
+  const parsed = parsePage(markup, "aoying999");
   assert.equal(parsed.before, 7);
   assert.equal(parsed.posts[0].text, "【熬鹰币安实盘】\n\n减仓 · A&B\n<script>");
   const mail = formatPost(parsed.posts[0]);
   assert.match(mail.subject, /减仓 · A&B/);
   assert.match(mail.html, /&lt;script&gt;/);
   assert.match(mail.text, /20:00:00[\s\S]+https:\/\/t.me\/aoying999\/7/);
-  assert.throws(() => parsePage("<html></html>"));
+  assert.throws(() => parsePage("<html></html>", "aoying999"));
 });
 
 test("首次建立基线，跨页去重，部分失败重跑时按各自进度发送", async () => {

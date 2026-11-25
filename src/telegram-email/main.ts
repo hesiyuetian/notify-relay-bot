@@ -2,11 +2,14 @@ import { mkdirSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { configuredMailboxes, env, runMain } from "../tools/channels.ts";
 import { sendEmail } from "../tools/notify.ts";
-import { fetchPage, formatPost } from "./channel.ts";
+import { channelUsername, fetchPage, formatPost } from "./channel.ts";
 import { forward, type Recipient } from "./forward.ts";
 import { sendWeChat } from "./wechat.ts";
 
 await runMain(async () => {
+  const channel = channelUsername(env("TELEGRAM_CHANNEL"));
+  const readPage = (before?: number) => fetchPage(channel, before);
+  console.log(`检查 Telegram 频道 @${channel}`);
   const preview = process.argv.includes("--dry-run");
   const testEmail = process.argv.includes("--test-email");
   const testWeChat = process.argv.includes("--test-wechat");
@@ -15,7 +18,7 @@ await runMain(async () => {
   if (!preview && testWeChat && !sendKey) throw new Error("请配置 SERVERCHAN_SENDKEY");
   if (!preview && !mailboxes.length && (testEmail || !sendKey)) throw new Error("请配置 SMTP 邮箱和 MAIL_TO，或设置 SERVERCHAN_SENDKEY");
   if (preview || testEmail || testWeChat) {
-    const { posts } = await fetchPage();
+    const { posts } = await readPage();
     const latest = posts.reduce((a, b) => a.id > b.id ? a : b);
     const mail = formatPost(latest);
     console.log(mail.text);
@@ -29,7 +32,7 @@ await runMain(async () => {
     return;
   }
   mkdirSync(".telegram-email", { recursive: true });
-  const db = new DatabaseSync(".telegram-email/aoying999.sqlite");
+  const db = new DatabaseSync(`.telegram-email/${channel}.sqlite`);
   try {
     const recipients: Recipient[] = mailboxes.map((mailbox) => ({
       to: mailbox.to,
@@ -47,7 +50,7 @@ await runMain(async () => {
         console.log(`Server酱已接受帖子 #${post.id}`);
       },
     });
-    await forward(db, recipients, fetchPage);
+    await forward(db, recipients, readPage);
   } finally {
     db.close();
   }

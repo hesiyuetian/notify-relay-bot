@@ -1,5 +1,5 @@
-name: 熬鹰频道邮件转发
-run-name: ${{ (github.event_name == 'schedule' || inputs.mode == 'scheduled') && '熬鹰频道转发（定时）' || (inputs.mode == 'test-wechat' && '熬鹰频道转发（微信测试）' || '熬鹰频道转发（邮件测试）') }}
+name: Telegram 频道邮件转发
+run-name: ${{ (github.event_name == 'schedule' || inputs.mode == 'scheduled') && 'Telegram 频道转发（定时）' || (inputs.mode == 'test-wechat' && 'Telegram 频道转发（微信测试）' || 'Telegram 频道转发（邮件测试）') }}
 
 on:
   workflow_dispatch:
@@ -40,12 +40,13 @@ jobs:
           if [[ -n "$remote_ref" ]]; then
             git fetch --depth=1 origin "$ref"
             git worktree add --detach .telegram-email FETCH_HEAD
-            test -s .telegram-email/aoying999.sqlite
+            for db in .telegram-email/*.sqlite; do test -s "$db"; done
           else
             git worktree add --orphan -b telegram-email-state .telegram-email
           fi
       - name: 转发频道消息
         env:
+          TELEGRAM_CHANNEL: ${{ vars.TELEGRAM_CHANNEL }}
           MODE: ${{ github.event_name == 'schedule' && 'scheduled' || inputs.mode }}
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
@@ -65,8 +66,8 @@ jobs:
         if: always() && steps.state.outcome == 'success'
         working-directory: .telegram-email
         run: |
-          if [[ ! -s aoying999.sqlite ]]; then exit 0; fi
-          git add -- aoying999.sqlite
+          if ! compgen -G '*.sqlite' > /dev/null; then exit 0; fi
+          git add -- *.sqlite
           if git diff --cached --quiet; then exit 0; fi
           git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m '保存频道邮件投递进度'
           git push origin HEAD:refs/heads/telegram-email-state
