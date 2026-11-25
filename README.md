@@ -67,6 +67,23 @@ Actions 自带的定时任务不保证准点，高峰期可能延迟几个小时
 
 在 Actions 页面手动点 **Run workflow** 默认是 `test` 模式：立即推送（潜力股还会跳过交易日判断），运行名以「（测试）」结尾，不影响正式推送的防重复判断。
 
+## 部署到 Linux 服务器（PM2）
+
+PM2 管理一个常驻调度进程 `ai-bot-scheduler`，按北京时间调用现有的 `deploy/run-task.sh`。默认每分钟转发 Telegram 新帖、每天 22:00 推送 GitHub 涨星。AI 要闻和潜力股默认暂停。
+
+1. 部署账号准备 Node.js ≥ 22.18、npm、PM2（可用 `npm install -g pm2` 安装）、`flock` 和 GNU `timeout`。新服务器先克隆仓库，已有部署直接进入项目目录。
+2. 在项目根目录用 `umask 077; cp -n .env.example .env` 准备配置，填写所需的邮箱、微信或 Telegram 凭据。用 `PM2_TASKS=telegram-email,github-trending` 选择任务；只迁移频道时填 `PM2_TASKS=telegram-email`。按需加入 `ai-news`（08:00）或 `stocks`（工作日 09:00 启动）。
+3. 先按下方「投递进度与切换」完成同一任务的调度交接。从本机系统 cron 迁入时注释对应的 crontab 行，沿用同一目录的 `.cron/` 和 `.telegram-email/`；从 Actions 迁入时按说明导入频道进度。
+4. 运行部署脚本。它安装项目依赖、校验配置、打印下一次执行时间，然后启动或重启同一个 PM2 进程，并用 `pm2 save` 保存部署账号的进程列表。任务在各自的计划时间执行。
+
+```bash
+./deploy/pm2-deploy.sh
+pm2 status ai-bot-scheduler
+pm2 logs ai-bot-scheduler --lines 50
+```
+
+更新时执行 `git pull --ff-only` 并重新运行部署脚本；修改 `.env` 后也请重新运行。临时暂停全部任务用 `pm2 stop ai-bot-scheduler`，恢复用部署脚本。已启动的单次任务会继续执行至结束或超时。首次配置服务器重启自启时，运行 `pm2 startup` 并执行它输出的系统服务安装命令，然后执行 `pm2 save`。
+
 ## 部署到 Linux 服务器（系统 cron）
 
 服务器 cron 和 GitHub Actions 共用四个 `src/<任务>/main.ts` 入口。每个任务可以单独选运行位置，例如让服务器每分钟转发频道，GitHub Actions 继续推送每日涨星。同一任务在两端都有正式调度时，两个环境的进度独立，可能重复发信。

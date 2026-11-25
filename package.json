@@ -19,6 +19,7 @@
     "test": "node --test \"test/**/*.test.ts\""
   },
   "dependencies": {
+    "croner": "^11.0.1",
     "linkedom": "^0.18.15",
     "nodemailer": "^6.9.16"
   },

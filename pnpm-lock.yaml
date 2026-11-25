@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      croner:
+        specifier: ^11.0.1
+        version: 11.0.1
       linkedom:
         specifier: ^0.18.15
         version: 0.18.15
@@ -33,6 +36,10 @@ packages:
   boolbase@2.0.0:
     resolution: {integrity: sha512-DkVaaQHymRhpYEYo9x1oo7Q7B0Y6KJUsjm3c9eTyFDby4MHLBTwZ6ZDWBel5zrYxj1WsZgC5oLpiz+93MluXeA==}
     engines: {node: '>=20.19.0'}
+
+  croner@11.0.1:
+    resolution: {integrity: sha512-/fmHcoczPy5cMcmJ6ex7J7LAwb545V1dNmRrdDGP3hwStg/06IYP56YgBySCSdWGDz2PJYQyDukaR8b8R5o2HA==}
+    engines: {node: '>=18.0'}
 
   css-select@7.0.0:
     resolution: {integrity: sha512-snmjEVXy+1LnwXdxhYvTMj1d9tOh4HxkA1YmoayVBeeyR2C14Pum7fcxJIm4SswYspVy866eYNwlH6xC3/VH5g==}
@@ -127,6 +134,8 @@ snapshots:
       '@types/node': 22.20.5
 
   boolbase@2.0.0: {}
+
+  croner@11.0.1: {}
 
   css-select@7.0.0:
     dependencies:
