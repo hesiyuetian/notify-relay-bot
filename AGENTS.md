@@ -53,7 +53,7 @@
 ## Linux 服务器部署流程
 
 1. 用同一个部署账号拉取代码、配置 `.env` 和运行任务。服务器需要 Node.js ≥ 22.18、npm、`flock` 和 GNU `timeout`。按任务选择 PM2 或系统 cron。
-2. **PM2**。安装 PM2，在 `.env` 设置 `PM2_TASKS`，运行 [pm2-deploy.sh](deploy/pm2-deploy.sh)。脚本依次安装依赖、编译、预检，用 PM2 启动或重启 `ai-bot-scheduler` 并保存进程列表。调度器运行 `dist/pm2-scheduler.js`，按排期调用 [run-task.sh](deploy/run-task.sh)。更新用 `git pull --ff-only` 后重跑部署脚本，使用 `pm2 status ai-bot-scheduler` 和 `pm2 logs ai-bot-scheduler --lines 50` 验证。
+2. **PM2**。安装 PM2，在 `.env` 设置 `PM2_TASKS`，运行 [pm2-deploy.sh](deploy/pm2-deploy.sh)。脚本依次安装依赖、编译、预检，用 PM2 启动或重启 `notify-relay-bot-scheduler` 并保存进程列表。调度器运行 `dist/pm2-scheduler.js`，按排期调用 [run-task.sh](deploy/run-task.sh)。更新用 `git pull --ff-only` 后重跑部署脚本，使用 `pm2 status notify-relay-bot-scheduler` 和 `pm2 logs notify-relay-bot-scheduler --lines 50` 验证。
 3. **系统 cron**。安装含开发依赖的项目依赖，执行 `npm run build`，创建日志所需的 `.cron/`，再按 [crontab.example](deploy/crontab.example) 配置绝对路径和时区。每次触发由 `run-task.sh` 加载 `.env` 并运行编译产物。更新代码后先重新编译，再检查 cron 日志。
 4. **运行状态**。PM2 与系统 cron 共用同一目录的任务锁和成功记录 `.cron/`，频道进度保存在 `.telegram-email/*.sqlite`。更新部署时保留这两个目录和 `.env`。
 

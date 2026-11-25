@@ -56,7 +56,7 @@ export const parseFeed = (xml: string, feed: Feed): NewsItem[] =>
 
 export const fetchFeed = async (feed: Feed): Promise<NewsItem[]> => {
   const response = await fetch(feed.url, {
-    headers: { "User-Agent": "Mozilla/5.0 (github-trending-push)" },
+    headers: { "User-Agent": "Mozilla/5.0 (notify-relay-bot)" },
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);

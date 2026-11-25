@@ -48,11 +48,11 @@ node --env-file=.env dist/telegram-email/main.js --test-feishu
 
 `telegram-email.yml` 读取一个公开频道，按已配置的渠道转发新帖。通知包含频道发布时间（北京时间）、正文和原帖链接，纯媒体帖通过原帖查看。邮件收件人沿用 `MAIL_TO`，多个地址分别投递，发件使用上表的 SMTP 配置。默认频道为 [@aoying999](https://t.me/s/aoying999)。
 
-- **更换订阅频道**：在仓库 Actions Variables 编辑 `TELEGRAM_CHANNEL`，可填 `aoying999`、`@aoying999` 或 `https://t.me/s/aoying999`。下一次运行使用新值，邮箱、微信和飞书同步切换。首次使用的频道从当时最新帖开始，切回曾用频道时从之前的进度补发。本地运行在 `.env` 设置同名变量。[仓库 Actions Variables](https://github.com/hesiyuetian/ai-bot/settings/variables/actions)
+- **更换订阅频道**：在仓库 Actions Variables 编辑 `TELEGRAM_CHANNEL`，可填 `aoying999`、`@aoying999` 或 `https://t.me/s/aoying999`。下一次运行使用新值，邮箱、微信和飞书同步切换。首次使用的频道从当时最新帖开始，切回曾用频道时从之前的进度补发。本地运行在 `.env` 设置同名变量。[仓库 Actions Variables](https://github.com/hesiyuetian/notify-relay-bot/settings/variables/actions)
 - **测试到达**：在 Actions 选择「Telegram 频道邮件转发」，运行默认的 `test`，会把最新一条发到 `MAIL_TO`，标题带「[测试]」。本地只预览可用 `npm run telegram-email:dry-run`。
 - **个人微信**：在 [Server酱 Turbo](https://sct.ftqq.com/sendkey/) 登录，在「消息通道」绑定方糖服务号。将 SendKey 保存为本仓库的 Actions Secret `SERVERCHAN_SENDKEY`，然后在同一工作流选择 `test-wechat`，确认微信收到带「[测试]」的最新帖。该测试只占用一次微信发送额度，独立于正式进度。
 - 微信首次启用时从当前最新帖开始，之后每条新帖都发给个人微信。邮箱和微信分别记录进度，发送失败时保留该渠道的待发帖子。Server酱接受请求后进度才会推进。免费版每天 5 条，日额度用尽后可能积压；服务返回限流时会延后重试。[服务额度与限制](https://sct.ftqq.com/docs/getting-started/faq/)
-- **每分钟检查**：在 [cron-job.org 控制台](https://console.cron-job.org/) 复制本仓库已有的定时推送任务，名称改为「熬鹰频道转邮箱」，URL 改为 `https://api.github.com/repos/hesiyuetian/ai-bot/actions/workflows/telegram-email.yml/dispatches`，周期选择 **Every minute**（`* * * * `\*）。保留原有 GitHub 授权请求头、POST 方法，正文设为 `{"ref":"main","inputs":{"mode":"scheduled"}}`。启用后可在任务历史中查看每次调用结果，在 GitHub Actions 查看实际检查和发送结果。
+- **每分钟检查**：在 [cron-job.org 控制台](https://console.cron-job.org/) 复制本仓库已有的定时推送任务，名称改为「熬鹰频道转邮箱」，URL 改为 `https://api.github.com/repos/hesiyuetian/notify-relay-bot/actions/workflows/telegram-email.yml/dispatches`，周期选择 **Every minute**（`* * * * *`）。保留原有 GitHub 授权请求头、POST 方法，正文设为 `{"ref":"main","inputs":{"mode":"scheduled"}}`。启用后可在任务历史中查看每次调用结果，在 GitHub Actions 查看实际检查和发送结果。
 - **正式运行**：每次调用检查一次。GitHub 自带计划每 5 分钟兜底，两个入口共用进度。调度排队、网络或发信耗时可能使实际到达超过一分钟。每个新收件人从首次检查时的最新帖开始，后续按编号从旧到新补发。频道编辑和删除不会触发邮件。
 - **发送进度**：Actions 自动创建 `telegram-email-state` 独立分支，需允许工作流向该分支写入。进度库保存收件人地址哈希和帖子编号。并发任务排队；某个邮箱发送失败会在下次检查时重试。如果 SMTP 已接受邮件后任务突然中止，或保存分支失败，下次可能重复发送。
 - **本地运行**：在常开设备上先执行 `npm run build`，再用系统定时器每分钟从项目根目录运行一次 `node --env-file=.env dist/telegram-email/main.js`。保留本地 `.telegram-email/` 目录。请在 Actions 和本地之间选一个正式运行位置，各自的进度独立。
@@ -83,7 +83,7 @@ Actions 自带的定时任务不保证准点，高峰期可能延迟几个小时
 
 ## 部署到 Linux 服务器（PM2）
 
-PM2 运行编译产物 `dist/pm2-scheduler.js`，进程名为 `ai-bot-scheduler`，按北京时间调用现有的 `deploy/run-task.sh`。默认每分钟转发 Telegram 新帖、每天 22:00 推送 GitHub 涨星。AI 要闻和潜力股默认暂停。
+PM2 运行编译产物 `dist/pm2-scheduler.js`，进程名为 `notify-relay-bot-scheduler`，按北京时间调用现有的 `deploy/run-task.sh`。默认每分钟转发 Telegram 新帖、每天 22:00 推送 GitHub 涨星。AI 要闻和潜力股默认暂停。
 
 1. 部署账号准备 Node.js ≥ 22.18、npm、PM2（可用 `npm install -g pm2` 安装）、`flock` 和 GNU `timeout`。新服务器先克隆仓库，已有部署直接进入项目目录。
 2. 在项目根目录用 `umask 077; cp -n .env.example .env` 准备配置，填写所需的邮箱、微信或 Telegram 凭据。用 `PM2_TASKS=telegram-email,github-trending` 选择任务；只迁移频道时填 `PM2_TASKS=telegram-email`。按需加入 `ai-news`（08:00）或 `stocks`（工作日 09:00 启动）。
@@ -92,11 +92,13 @@ PM2 运行编译产物 `dist/pm2-scheduler.js`，进程名为 `ai-bot-scheduler`
 
 ```bash
 ./deploy/pm2-deploy.sh
-pm2 status ai-bot-scheduler
-pm2 logs ai-bot-scheduler --lines 50
+pm2 status notify-relay-bot-scheduler
+pm2 logs notify-relay-bot-scheduler --lines 50
 ```
 
-更新时执行 `git pull --ff-only` 并重新运行部署脚本；修改 `.env` 后也请重新运行。临时暂停全部任务用 `pm2 stop ai-bot-scheduler`，恢复用部署脚本。已启动的单次任务会继续执行至结束或超时。首次配置服务器重启自启时，运行 `pm2 startup` 并执行它输出的系统服务安装命令，然后执行 `pm2 save`。
+更新时执行 `git pull --ff-only` 并重新运行部署脚本。修改 `.env` 后也请重新运行。临时暂停全部任务用 `pm2 stop notify-relay-bot-scheduler`，恢复用部署脚本。已启动的单次任务会继续执行至结束或超时。首次配置服务器重启自启时，运行 `pm2 startup` 并执行它输出的系统服务安装命令，然后执行 `pm2 save`。
+
+仓库改名后，在原部署目录运行 `git remote set-url origin https://github.com/hesiyuetian/notify-relay-bot.git`，再更新和重跑部署脚本。新进程启动后，脚本会移除同一部署目录中的旧 PM2 进程 `ai-bot-scheduler`，继续使用原有的 `.env` 和投递进度。已有 cron-job.org 任务的 dispatch URL 里也应使用新仓库名。
 
 ## 部署到 Linux 服务器（系统 cron）
 
@@ -104,11 +106,11 @@ pm2 logs ai-bot-scheduler --lines 50
 
 ### 首次部署
 
-准备 Node.js ≥ 22.18、系统 cron、`flock`（util-linux）和 `timeout`（GNU coreutils）。以下以部署账号有权写入的 `/opt/ai-bot` 为例。该账号负责安装依赖和运行 cron。
+准备 Node.js ≥ 22.18、系统 cron、`flock`（util-linux）和 `timeout`（GNU coreutils）。以下以部署账号有权写入的 `/opt/notify-relay-bot` 为例。该账号负责安装依赖和运行 cron。
 
 ```bash
-git clone https://github.com/hesiyuetian/ai-bot.git /opt/ai-bot
-cd /opt/ai-bot
+git clone https://github.com/hesiyuetian/notify-relay-bot.git /opt/notify-relay-bot
+cd /opt/notify-relay-bot
 npm install --include=dev --no-audit --no-fund
 npm run build
 umask 077
@@ -126,7 +128,7 @@ node --version
 
 ### 定时和启停
 
-用部署账号执行 `crontab -e`，把 [服务器 crontab 模板](deploy/crontab.example) 中需要的配置追加进去。将 `APP_DIR` 改成部署目录，`NODE_BIN` 改成上一步 `command -v node` 输出的绝对路径。使用 NVM 时也填写该路径。保存后用 `crontab -l` 核对，用 `tail -f /opt/ai-bot/.cron/tasks.log` 查看运行结果。为该日志配置服务器的日志轮转。
+用部署账号执行 `crontab -e`，把 [服务器 crontab 模板](deploy/crontab.example) 中需要的配置追加进去。将 `APP_DIR` 改成部署目录，`NODE_BIN` 改成上一步 `command -v node` 输出的绝对路径。使用 NVM 时也填写该路径。保存后用 `crontab -l` 核对，用 `tail -f /opt/notify-relay-bot/.cron/tasks.log` 查看运行结果。为该日志配置服务器的日志轮转。
 
 模板启用每分钟频道检查和北京时间 22:00 的 GitHub 涨星。AI 要闻和潜力股两行默认注释。恢复时取消对应注释即可。潜力股正式任务在工作日 09:00 启动，沿用交易日判断和默认 09:20 推送时间。
 
@@ -139,7 +141,7 @@ node --version
 从 GitHub 切到服务器时，先用 `--dry-run` 验证连接，再暂停对应的 cron-job.org 任务和 GitHub 工作流，等已启动的运行结束。首次迁移频道且希望接续原进度时，在启用服务器 cron **之前**，从最新状态分支导入数据库到空的状态目录：
 
 ```bash
-cd /opt/ai-bot
+cd /opt/notify-relay-bot
 git fetch origin refs/heads/telegram-email-state && mkdir .telegram-email &&
   git archive FETCH_HEAD -- '*.sqlite' | tar -x -C .telegram-email
 ```

@@ -64,7 +64,7 @@ export const parseTrending = (html: string): TrendingRepo[] =>
 export const fetchTopByStarsToday = async (limit: number): Promise<TrendingRepo[]> => {
   const response = await fetch(TRENDING_URL, {
     headers: {
-      "User-Agent": "Mozilla/5.0 (github-trending-push)",
+      "User-Agent": "Mozilla/5.0 (notify-relay-bot)",
       "Accept-Language": "en-US,en;q=0.9",
     },
   });

@@ -22,6 +22,20 @@ else
 fi
 npm run build
 node dist/pm2-scheduler.js --check
-pm2 startOrRestart deploy/ecosystem.config.cjs --only ai-bot-scheduler --update-env
+pm2 startOrRestart deploy/ecosystem.config.cjs --only notify-relay-bot-scheduler --update-env
+
+# Remove the old scheduler only after the replacement starts, and only from this checkout.
+legacy_ids=$(pm2 jlist | node --input-type=commonjs -e '
+  const fs = require("node:fs");
+  const apps = JSON.parse(fs.readFileSync(0, "utf8"));
+  for (const app of apps) {
+    if (app.name === "ai-bot-scheduler" && app.pm2_env.pm_cwd === process.cwd()) {
+      console.log(app.pm_id);
+    }
+  }
+')
+for id in $legacy_ids; do
+  pm2 delete "$id"
+done
 pm2 save
-echo "查看运行日志：pm2 logs ai-bot-scheduler"
+echo "查看运行日志：pm2 logs notify-relay-bot-scheduler"

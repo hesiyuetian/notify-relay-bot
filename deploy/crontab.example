@@ -1,7 +1,7 @@
 # User crontab (crontab -e). Set APP_DIR and NODE_BIN to absolute paths on the server.
 # Times below are Beijing time. Use Cronie with CRON_TZ, or a cron daemon running in Asia/Shanghai.
 CRON_TZ=Asia/Shanghai
-APP_DIR=/opt/ai-bot
+APP_DIR=/opt/notify-relay-bot
 NODE_BIN=/usr/bin/node
 PATH=/usr/local/bin:/usr/bin:/bin
 

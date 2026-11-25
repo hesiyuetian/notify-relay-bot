@@ -2,7 +2,7 @@ const path = require("node:path");
 
 module.exports = {
   apps: [{
-    name: "ai-bot-scheduler",
+    name: "notify-relay-bot-scheduler",
     cwd: path.resolve(__dirname, ".."),
     script: "dist/pm2-scheduler.js",
     interpreter: process.execPath,
