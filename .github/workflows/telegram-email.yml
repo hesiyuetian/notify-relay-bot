@@ -1,13 +1,13 @@
 name: 熬鹰频道邮件转发
-run-name: ${{ (github.event_name == 'schedule' || inputs.mode == 'scheduled') && '熬鹰频道邮件转发（定时）' || '熬鹰频道邮件转发（测试）' }}
+run-name: ${{ (github.event_name == 'schedule' || inputs.mode == 'scheduled') && '熬鹰频道转发（定时）' || (inputs.mode == 'test-wechat' && '熬鹰频道转发（微信测试）' || '熬鹰频道转发（邮件测试）') }}
 
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "test 发送最新一条测试邮件，scheduled 检查一次新帖（cron-job.org 每分钟调用）"
+        description: "test 测试邮件，test-wechat 测试个人微信，scheduled 检查新帖"
         type: choice
-        options: [test, scheduled]
+        options: [test, test-wechat, scheduled]
         default: test
   # 主触发为 cron-job.org 每分钟一次。此计划只作兜底，两种触发共用投递进度。
   schedule:
@@ -44,17 +44,20 @@ jobs:
           else
             git worktree add --orphan -b telegram-email-state .telegram-email
           fi
-      - name: 发送邮件
+      - name: 转发频道消息
         env:
           MODE: ${{ github.event_name == 'schedule' && 'scheduled' || inputs.mode }}
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          SERVERCHAN_SENDKEY: ${{ secrets.SERVERCHAN_SENDKEY }}
           MAIL_TO: ${{ secrets.MAIL_TO }}
         run: |
           if [[ "$MODE" == "test" ]]; then
             npm run telegram-email -- --test-email
+          elif [[ "$MODE" == "test-wechat" ]]; then
+            npm run telegram-email -- --test-wechat
           else
             npm run telegram-email
           fi

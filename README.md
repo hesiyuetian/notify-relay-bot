@@ -30,11 +30,13 @@ GitHub 没有 Trending 官方 API，所以脚本解析 Trending 页面（约 25 
 
 只配了 Telegram 或只配了邮箱也可以，没配的渠道会自动跳过。
 
-## 熬鹰 Telegram 频道转邮箱
+## 熬鹰 Telegram 频道转邮箱和个人微信
 
 `telegram-email.yml` 读取 [@aoying999 公开预览](https://t.me/s/aoying999)，每条新帖发一封邮件。收件人沿用 `MAIL_TO`，转发多个地址时分别投递。发件使用上表的 SMTP 配置。邮件包含频道发布时间（北京时间）、正文和原帖链接，纯媒体帖通过原帖查看。
 
 - **测试到达**：在 Actions 选择「熬鹰频道邮件转发」，运行默认的 `test`，会把最新一条发到 `MAIL_TO`，标题带「[测试]」。本地只预览可用 `npm run telegram-email:dry-run`。
+- **个人微信**：在 [Server酱 Turbo](https://sct.ftqq.com/sendkey/) 登录，在「消息通道」绑定方糖服务号。将 SendKey 保存为本仓库的 Actions Secret `SERVERCHAN_SENDKEY`，然后在同一工作流选择 `test-wechat`，确认微信收到带「[测试]」的最新帖。该测试只占用一次微信发送额度，独立于正式进度。
+- 微信首次启用时从当前最新帖开始，之后每条新帖都发给个人微信。邮箱和微信分别记录进度，发送失败时保留该渠道的待发帖子。Server酱接受请求后进度才会推进。免费版每天 5 条，日额度用尽后可能积压；服务返回限流时会延后重试。[服务额度与限制](https://sct.ftqq.com/docs/getting-started/faq/)
 - **每分钟检查**：在 [cron-job.org 控制台](https://console.cron-job.org/) 复制本仓库已有的定时推送任务，名称改为「熬鹰频道转邮箱」，URL 改为 `https://api.github.com/repos/hesiyuetian/ai-bot/actions/workflows/telegram-email.yml/dispatches`，周期选择 **Every minute**（`* * * * *`）。保留原有 GitHub 授权请求头、POST 方法，正文设为 `{"ref":"main","inputs":{"mode":"scheduled"}}`。启用后可在任务历史中查看每次调用结果，在 GitHub Actions 查看实际检查和发送结果。
 - **正式运行**：每次调用检查一次。GitHub 自带计划每 5 分钟兜底，两个入口共用进度。调度排队、网络或发信耗时可能使实际到达超过一分钟。每个新收件人从首次检查时的最新帖开始，后续按编号从旧到新补发。频道编辑和删除不会触发邮件。
 - **发送进度**：Actions 自动创建 `telegram-email-state` 独立分支，需允许工作流向该分支写入。进度库保存收件人地址哈希和帖子编号。并发任务排队；某个邮箱发送失败会在下次检查时重试。如果 SMTP 已接受邮件后任务突然中止，或保存分支失败，下次可能重复发送。
