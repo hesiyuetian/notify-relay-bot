@@ -15,9 +15,9 @@ test("服务器 cron 在独立工作目录读取配置，加锁并按任务保�
     copyFileSync(new URL("../../deploy/run-task.sh", import.meta.url), script);
     writeFileSync(join(dir, ".env"), "TEST_SERVER_ENV=loaded\n");
     for (const task of tasks) {
-      const src = join(dir, "src", task);
-      mkdirSync(src, { recursive: true });
-      writeFileSync(join(src, "main.ts"), `
+      const dist = join(dir, "dist", task);
+      mkdirSync(dist, { recursive: true });
+      writeFileSync(join(dist, "main.js"), `
         if (process.env.TEST_SERVER_ENV !== "loaded") process.exit(1);
         if (process.env.FAIL_TASK) process.exit(17);
         console.log(JSON.stringify(process.argv.slice(2)));

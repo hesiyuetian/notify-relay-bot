@@ -4,7 +4,7 @@ module.exports = {
   apps: [{
     name: "ai-bot-scheduler",
     cwd: path.resolve(__dirname, ".."),
-    script: "deploy/pm2-scheduler.mjs",
+    script: "dist/pm2-scheduler.js",
     interpreter: process.execPath,
     instances: 1,
     exec_mode: "fork",

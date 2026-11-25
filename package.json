@@ -8,14 +8,16 @@
     "node": ">=22.18"
   },
   "scripts": {
-    "start": "node src/github-trending/main.ts",
-    "dry-run": "node src/github-trending/main.ts --dry-run",
-    "stocks": "node src/stocks/main.ts",
-    "stocks:dry-run": "node src/stocks/main.ts --dry-run",
-    "ai-news": "node src/ai-news/main.ts",
-    "ai-news:dry-run": "node src/ai-news/main.ts --dry-run",
-    "telegram-email": "node src/telegram-email/main.ts",
-    "telegram-email:dry-run": "node src/telegram-email/main.ts --dry-run",
+    "build": "tsc -p tsconfig.json",
+    "pretest": "npm run build",
+    "start": "node dist/github-trending/main.js",
+    "dry-run": "node dist/github-trending/main.js --dry-run",
+    "stocks": "node dist/stocks/main.js",
+    "stocks:dry-run": "node dist/stocks/main.js --dry-run",
+    "ai-news": "node dist/ai-news/main.js",
+    "ai-news:dry-run": "node dist/ai-news/main.js --dry-run",
+    "telegram-email": "node dist/telegram-email/main.js",
+    "telegram-email:dry-run": "node dist/telegram-email/main.js --dry-run",
     "test": "node --test \"test/**/*.test.ts\""
   },
   "dependencies": {
@@ -25,6 +27,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
-    "@types/nodemailer": "^6.4.17"
+    "@types/nodemailer": "^6.4.17",
+    "typescript": "~5.9.3"
   }
 }

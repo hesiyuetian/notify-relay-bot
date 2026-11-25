@@ -29,8 +29,9 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-      - run: npm install --omit=dev --no-audit --no-fund
-      - run: npm test
+      - run: npm install --include=dev --no-audit --no-fund
+      - name: 编译并运行测试
+        run: npm test
       - name: 读取独立分支中的投递进度
         id: state
         if: github.event_name == 'schedule' || inputs.mode == 'scheduled'

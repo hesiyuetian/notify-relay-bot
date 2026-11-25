@@ -43,8 +43,9 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-      - run: npm install --omit=dev --no-audit --no-fund
-      - run: npm test
+      - run: npm install --include=dev --no-audit --no-fund
+      - name: 编译并运行测试
+        run: npm test
       - run: npm run stocks -- ${{ (github.event_name == 'workflow_dispatch' && inputs.mode != 'scheduled') && '--force' || '' }}
         env:
           STOCK_PUSH_TIME: ${{ (github.event_name == 'workflow_dispatch' && inputs.mode != 'scheduled') && '00:00' || '09:20' }}

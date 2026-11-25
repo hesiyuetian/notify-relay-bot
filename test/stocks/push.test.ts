@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-const MAIN = fileURLToPath(new URL("../../src/stocks/main.ts", import.meta.url));
+const MAIN = fileURLToPath(new URL("../../dist/stocks/main.js", import.meta.url));
 const PUSH_PREFIX = "TEST_PUSH ";
 const REQUEST_PREFIX = "TEST_REQUEST ";
 
@@ -79,7 +79,7 @@ const runStockPush = (mode: "premarket" | "fallback" | "unavailable" | "late", d
     const preload = join(directory, "mock-fetch.mjs");
     writeFileSync(preload, PRELOAD);
     const result = spawnSync(process.execPath, [
-      "--experimental-strip-types", "--import", pathToFileURL(preload).href,
+      "--import", pathToFileURL(preload).href,
       MAIN, ...(mode === "late" ? [] : [dryRun ? "--dry-run" : "--force"]),
     ], {
       encoding: "utf8",

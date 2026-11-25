@@ -19,7 +19,7 @@ test("公开频道配置规范化，拒绝邀请链接、帖子链接和任意�
 
 test("切换频道按各自进度继续发送，微信标题和链接使用所选频道", () => {
   const dir = mkdtempSync(join(tmpdir(), "channel-config-"));
-  const main = fileURLToPath(new URL("../../src/telegram-email/main.ts", import.meta.url));
+  const main = fileURLToPath(new URL("../../dist/telegram-email/main.js", import.meta.url));
   const preload = join(dir, "preview.mjs");
   try {
     writeFileSync(preload, `

@@ -16,11 +16,12 @@ if [ ! -f .env ]; then
 fi
 
 if command -v pnpm >/dev/null; then
-  pnpm install --prod --frozen-lockfile
+  pnpm install --prod=false --frozen-lockfile
 else
-  npm install --omit=dev --no-package-lock --no-audit --no-fund
+  npm install --include=dev --no-package-lock --no-audit --no-fund
 fi
-node deploy/pm2-scheduler.mjs --check
+npm run build
+node dist/pm2-scheduler.js --check
 pm2 startOrRestart deploy/ecosystem.config.cjs --only ai-bot-scheduler --update-env
 pm2 save
 echo "查看运行日志：pm2 logs ai-bot-scheduler"

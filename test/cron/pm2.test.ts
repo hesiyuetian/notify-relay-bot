@@ -9,11 +9,12 @@ test("PM2 部署预检检查所选任务，显示北京排期并立即退出", (
   const dir = mkdtempSync(join(tmpdir(), "pm2 config "));
   try {
     const root = new URL("../../", import.meta.url);
-    const entry = join(dir, "deploy/pm2-scheduler.mjs");
-    mkdirSync(join(dir, "deploy"));
-    copyFileSync(new URL("deploy/pm2-scheduler.mjs", root), entry);
+    const entry = join(dir, "dist/pm2-scheduler.js");
+    mkdirSync(join(dir, "dist"));
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ type: "module" }));
+    copyFileSync(new URL("dist/pm2-scheduler.js", root), entry);
     symlinkSync(new URL("node_modules/", root), join(dir, "node_modules"), "dir");
-    symlinkSync(new URL("src/", root), join(dir, "src"), "dir");
+    symlinkSync(new URL("dist/tools/", root), join(dir, "dist/tools"), "dir");
     const check = (configuration: string) => {
       writeFileSync(join(dir, ".env"), configuration);
       return spawnSync(process.execPath, [entry, "--check"], { cwd: tmpdir(), env: { TZ: "UTC" }, encoding: "utf8", timeout: 5000 });

@@ -20,9 +20,11 @@ case "$task" in
 esac
 if [ "$#" -eq 1 ] && [ "$1" != "--dry-run" ]; then usage; fi
 
+entry="dist/$task/main.js"
+[ -f "$entry" ] || { echo "缺少 $entry，请先运行 npm run build。" >&2; exit 1; }
 node_bin=${NODE_BIN:-node}
 if [ "$#" -eq 1 ]; then
-  exec timeout --kill-after=30s "$limit" "$node_bin" --env-file=.env "src/$task/main.ts" --dry-run
+  exec timeout --kill-after=30s "$limit" "$node_bin" --env-file=.env "$entry" --dry-run
 fi
 
 mkdir -p .cron
@@ -40,7 +42,7 @@ if [ "$task" != telegram-email ] && [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$d
   exit 0
 fi
 
-timeout --kill-after=30s "$limit" "$node_bin" --env-file=.env "src/$task/main.ts"
+timeout --kill-after=30s "$limit" "$node_bin" --env-file=.env "$entry"
 if [ "$task" != telegram-email ]; then
   echo "$day" > "$stamp.tmp"
   mv -f "$stamp.tmp" "$stamp"
