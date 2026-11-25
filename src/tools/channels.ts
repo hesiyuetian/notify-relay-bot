@@ -7,6 +7,9 @@ const DEFAULT_SMTP_PORT = 465;
 
 export const env = (name: string): string | undefined => process.env[name]?.trim() || undefined;
 
+export const configuredWeChatKey = (): string | undefined =>
+  env("WECHAT_PUSH_ENABLED")?.toLowerCase() === "true" ? env("SERVERCHAN_SENDKEY") : undefined;
+
 export type Message = {
   readonly subject: string;
   readonly telegram: string;

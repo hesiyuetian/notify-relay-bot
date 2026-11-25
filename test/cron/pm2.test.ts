@@ -24,7 +24,8 @@ test("PM2 部署预检检查所选任务，显示北京排期并立即退出", (
     assert.match(valid.stdout, /telegram-email  \* \* \* \* \*/);
     assert.match(valid.stdout, /github-trending  0 22 \* \* \*.*22:00:00/);
     assert.doesNotMatch(valid.stdout, /stocks|ai-news/);
-    assert.equal(check("PM2_TASKS=telegram-email\nSERVERCHAN_SENDKEY=test\n").status, 0);
+    assert.equal(check("PM2_TASKS=telegram-email\nSERVERCHAN_SENDKEY=test\nWECHAT_PUSH_ENABLED=true\n").status, 0);
+    assert.match(check("PM2_TASKS=telegram-email\nSERVERCHAN_SENDKEY=test\n").stderr, /配置可用的推送渠道/);
     assert.equal(check("FEISHU_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/test-token\n").status, 0);
     assert.match(check("PM2_TASKS=unknown").stderr, /未知任务/);
     assert.match(check("PM2_TASKS=github-trending\nSERVERCHAN_SENDKEY=test").stderr, /配置可用的推送渠道/);

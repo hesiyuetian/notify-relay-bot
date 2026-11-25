@@ -41,11 +41,12 @@ test("切换频道时微信与飞书按各自进度发送，飞书测试不建�
           '<a class="tgme_widget_message_date"><time datetime="2026-11-25T00:00:00Z"></time></a></div></section>');
       };
     `);
-    const check = (value: string, source: string, id: number, args: string[] = [], failFeishu = false) => {
+    const check = (value: string, source: string, id: number, args: string[] = [], failFeishu = false, wechatEnabled = "true") => {
       const result = spawnSync(process.execPath, ["--import", preload, main, ...args], {
         cwd: dir, encoding: "utf8",
         env: {
           TELEGRAM_CHANNEL: value, TEST_SOURCE: source, TEST_ID: String(id), SERVERCHAN_SENDKEY: "SCTtest",
+          WECHAT_PUSH_ENABLED: wechatEnabled,
           FEISHU_WEBHOOK_URL: "https://open.feishu.cn/open-apis/bot/v2/hook/test-token",
           FAIL_FEISHU: failFeishu ? "1" : "0",
         },
@@ -59,7 +60,7 @@ test("切换频道时微信与飞书按各自进度发送，飞书测试不建�
     assert.doesNotMatch(testRun, /TEST_SEND/);
     assert.equal(existsSync(join(dir, ".telegram-email")), false);
     assert.doesNotMatch(check("", "aoying999", 134), /TEST_SEND/);
-    assert.doesNotMatch(check("@NewsFeed", "newsfeed", 10), /TEST_SEND/);
+    assert.equal(check("@NewsFeed", "newsfeed", 10).trim(), "检查 Telegram 频道 @newsfeed");
     assert.match(check("https://t.me/s/newsfeed", "newsfeed", 11), /TEST_SEND [^\n]*@newsfeed[\s\S]+https:\/\/t.me\/newsfeed\/11/);
     assert.match(check("AOYING999", "aoying999", 135), /TEST_SEND [^\n]*熬鹰频道[\s\S]+aoying999\/135/);
     assert.doesNotMatch(check("newsfeed", "newsfeed", 11), /TEST_SEND|FEISHU_SEND/);
@@ -67,6 +68,12 @@ test("切换频道时微信与飞书按各自进度发送，飞书测试不建�
     const retry = check("newsfeed", "newsfeed", 12);
     assert.match(retry, /FEISHU_SEND [^\n]*@newsfeed[\s\S]+https:\/\/t.me\/newsfeed\/12/);
     assert.doesNotMatch(retry, /TEST_SEND/);
+    const paused = check("newsfeed", "newsfeed", 13, [], false, "false");
+    assert.match(paused, /FEISHU_SEND/);
+    assert.doesNotMatch(paused, /TEST_SEND|已接受帖子|开始订阅新帖/);
+    const resumed = check("newsfeed", "newsfeed", 13);
+    assert.match(resumed, /TEST_SEND/);
+    assert.doesNotMatch(resumed, /FEISHU_SEND/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

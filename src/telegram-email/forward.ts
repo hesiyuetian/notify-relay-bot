@@ -40,8 +40,7 @@ export const forward = async (
     const key = createHash("sha256").update(target.to).digest("hex");
     const label = target.label ?? `收件人 ${index + 1}`;
     if (Number(paused.get(key)?.retry_at ?? 0) > Date.now()) continue;
-    const { changes } = insert.run(key, latest);
-    if (changes) console.log(`${label} 已从 #${latest} 开始订阅新帖`);
+    insert.run(key, latest);
     const cursor = Number(lookup.get(key)!.last_id);
     if (cursor >= latest) continue;
     let posts: Post[];
