@@ -23,18 +23,32 @@ GitHub 没有 Trending 官方 API，所以脚本解析 Trending 页面（约 25 
 | `SMTP_USER` | 发件邮箱地址 |
 | `SMTP_PASS` | **不是登录密码**：Gmail 用「应用专用密码」，QQ/163 用「SMTP 授权码」 |
 | `MAIL_TO` | 收件地址，多个用英文逗号分隔，每人单独发一封（互相看不到对方地址） |
+| `FEISHU_WEBHOOK_URL` | 可选，飞书群自定义机器人的 Webhook 地址 |
+| `FEISHU_WEBHOOK_SECRET` | 使用机器人签名校验时填写机器人的签名密钥 |
 | `ANTHROPIC_API_KEY` | 可选，AI 要闻和潜力股 AI 选股用 Claude。在 [Claude Console](https://platform.claude.com) 创建，按用量单独计费，和 Claude Pro 订阅无关 |
 | `OPENAI_API_KEY` | 可选，AI 要闻和潜力股 AI 选股用 ChatGPT。在 [OpenAI Platform](https://platform.openai.com) 创建，同样和 ChatGPT Plus 订阅无关 |
 
 3. 打开 **Actions** 标签 → 选「GitHub 今日涨星推送」→ **Run workflow** 手动跑一次，确认收到。之后每天自动执行。「AI 圈每日要闻推送」「每日潜力股推送」同理，潜力股手动运行时会跳过交易日判断并立即推送。
 
-只配了 Telegram 或只配了邮箱也可以，没配的渠道会自动跳过。
+邮箱、Telegram Bot 和飞书按任务支持的渠道独立配置，单独配置飞书也可以运行。频道转发另外支持个人微信。
 
-## Telegram 频道转邮箱和个人微信
+## 飞书群推送
 
-`telegram-email.yml` 读取一个公开频道，默认是 [@aoying999](https://t.me/s/aoying999)，每条新帖发一封邮件。收件人沿用 `MAIL_TO`，转发多个地址时分别投递。发件使用上表的 SMTP 配置。邮件包含频道发布时间（北京时间）、正文和原帖链接，纯媒体帖通过原帖查看。
+四个任务都支持推送到同一个配置的飞书群。新启用的飞书接收端从 Telegram 频道当时的最新帖建立基线，之后按帖子编号独立保存投递进度。
 
-- **更换订阅频道**：在 [仓库 Actions Variables](https://github.com/hesiyuetian/ai-bot/settings/variables/actions) 编辑 `TELEGRAM_CHANNEL`，可填 `aoying999`、`@aoying999` 或 `https://t.me/s/aoying999`。下一次运行使用新值，邮箱和微信同步切换。首次使用的频道从当时最新帖开始，切回曾用频道时从之前的进度补发。本地运行在 `.env` 设置同名变量。
+1. 打开目标飞书群，在群设置的「群机器人」里添加「自定义机器人」，复制 Webhook。选择「签名校验」时，同时复制签名密钥。如使用自定义关键词，确保要接收的通知正文或标题包含其中一个关键词。[飞书配置说明](https://open.feishu.cn/document/client-docs/bot-v3/add-custom-bot)
+2. GitHub Actions 在仓库 Secrets 中添加 `FEISHU_WEBHOOK_URL` 和启用签名时所需的 `FEISHU_WEBHOOK_SECRET`。PM2 或系统 cron 在服务器 `.env` 填写同名变量。修改 PM2 配置后重跑 `./deploy/pm2-deploy.sh`，系统 cron 的下一次任务会读取新配置。
+3. 在 Actions 的「Telegram 频道邮件转发」选择 `test-feishu`，或在安装依赖并编译的服务器上运行下面的命令。该命令向飞书发送一条带「[测试]」的最新消息，正式投递进度独立保存。
+
+```bash
+node --env-file=.env dist/telegram-email/main.js --test-feishu
+```
+
+## Telegram 频道转邮箱、个人微信和飞书
+
+`telegram-email.yml` 读取一个公开频道，按已配置的渠道转发新帖。通知包含频道发布时间（北京时间）、正文和原帖链接，纯媒体帖通过原帖查看。邮件收件人沿用 `MAIL_TO`，多个地址分别投递，发件使用上表的 SMTP 配置。默认频道为 [@aoying999](https://t.me/s/aoying999)。
+
+- **更换订阅频道**：在仓库 Actions Variables 编辑 `TELEGRAM_CHANNEL`，可填 `aoying999`、`@aoying999` 或 `https://t.me/s/aoying999`。下一次运行使用新值，邮箱、微信和飞书同步切换。首次使用的频道从当时最新帖开始，切回曾用频道时从之前的进度补发。本地运行在 `.env` 设置同名变量。[仓库 Actions Variables](https://github.com/hesiyuetian/ai-bot/settings/variables/actions)
 - **测试到达**：在 Actions 选择「Telegram 频道邮件转发」，运行默认的 `test`，会把最新一条发到 `MAIL_TO`，标题带「[测试]」。本地只预览可用 `npm run telegram-email:dry-run`。
 - **个人微信**：在 [Server酱 Turbo](https://sct.ftqq.com/sendkey/) 登录，在「消息通道」绑定方糖服务号。将 SendKey 保存为本仓库的 Actions Secret `SERVERCHAN_SENDKEY`，然后在同一工作流选择 `test-wechat`，确认微信收到带「[测试]」的最新帖。该测试只占用一次微信发送额度，独立于正式进度。
 - 微信首次启用时从当前最新帖开始，之后每条新帖都发给个人微信。邮箱和微信分别记录进度，发送失败时保留该渠道的待发帖子。Server酱接受请求后进度才会推进。免费版每天 5 条，日额度用尽后可能积压；服务返回限流时会延后重试。[服务额度与限制](https://sct.ftqq.com/docs/getting-started/faq/)
@@ -230,7 +244,7 @@ AI 只能从这 30 只里选，返回其他代码会被丢弃；它被要求只�
 
 ```
 src/
-  tools/            各任务共用：推送渠道 (Telegram/邮件)、Claude/ChatGPT 调用、翻译、HTML 处理、北京时间、重试
+  tools/            各任务共用：推送渠道 (Telegram/邮件/飞书)、Claude/ChatGPT 调用、翻译、HTML 处理、北京时间、重试
   github-trending/  GitHub 今日涨星：抓取、翻译、排版、入口 main.ts
   ai-news/          AI 圈要闻：抓取、合并打分、AI 总结、排版、入口 main.ts
     sources/        RSS、Hacker News、HF Daily Papers

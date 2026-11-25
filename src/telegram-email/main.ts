@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
-import { configuredMailboxes, env, runMain } from "../tools/channels.ts";
+import { configuredFeishu, configuredMailboxes, env, runMain } from "../tools/channels.ts";
+import { sendFeishu } from "../tools/feishu.ts";
 import { sendEmail } from "../tools/notify.ts";
 import { channelUsername, fetchPage, formatPost } from "./channel.ts";
 import { forward, type Recipient } from "./forward.ts";
@@ -13,17 +14,26 @@ await runMain(async () => {
   const preview = process.argv.includes("--dry-run");
   const testEmail = process.argv.includes("--test-email");
   const testWeChat = process.argv.includes("--test-wechat");
+  const testFeishu = process.argv.includes("--test-feishu");
   const sendKey = env("SERVERCHAN_SENDKEY");
   const mailboxes = configuredMailboxes();
+  const feishu = configuredFeishu();
+  if (!preview && testFeishu && !feishu) throw new Error("请配置 FEISHU_WEBHOOK_URL");
   if (!preview && testWeChat && !sendKey) throw new Error("请配置 SERVERCHAN_SENDKEY");
-  if (!preview && !mailboxes.length && (testEmail || !sendKey)) throw new Error("请配置 SMTP 邮箱和 MAIL_TO，或设置 SERVERCHAN_SENDKEY");
-  if (preview || testEmail || testWeChat) {
+  if (!preview && testEmail && !mailboxes.length) throw new Error("请配置 SMTP 邮箱和 MAIL_TO");
+  if (!preview && !mailboxes.length && !sendKey && !feishu) {
+    throw new Error("请配置 SMTP 邮箱和 MAIL_TO、SERVERCHAN_SENDKEY 或 FEISHU_WEBHOOK_URL");
+  }
+  if (preview || testEmail || testWeChat || testFeishu) {
     const { posts } = await readPage();
     const latest = posts.reduce((a, b) => a.id > b.id ? a : b);
     const mail = formatPost(latest);
     console.log(mail.text);
     if (preview) return;
-    if (testWeChat && sendKey) {
+    if (testFeishu && feishu) {
+      await sendFeishu(feishu, `[测试] ${mail.subject}`, mail.text);
+      console.log(`飞书已接受测试通知 #${latest.id}`);
+    } else if (testWeChat && sendKey) {
       await sendWeChat(sendKey, latest, true);
       console.log(`Server酱已接受微信测试通知 #${latest.id}`);
     } else {
@@ -48,6 +58,15 @@ await runMain(async () => {
       deliver: async (post) => {
         await sendWeChat(sendKey, post);
         console.log(`Server酱已接受帖子 #${post.id}`);
+      },
+    });
+    if (feishu) recipients.push({
+      to: `feishu:${feishu.webhook}`,
+      label: "飞书",
+      deliver: async (post) => {
+        const mail = formatPost(post);
+        await sendFeishu(feishu, mail.subject, mail.text);
+        console.log(`飞书已接受帖子 #${post.id}`);
       },
     });
     await forward(db, recipients, readPage);

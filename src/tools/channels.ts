@@ -1,4 +1,5 @@
 import { describeError } from "./async.ts";
+import { type FeishuConfig, sendFeishu } from "./feishu.ts";
 import { splitList } from "./list.ts";
 import { type MailConfig, sendEmail, sendTelegram } from "./notify.ts";
 
@@ -41,6 +42,11 @@ export const configuredMailboxes = (): MailConfig[] => {
   return recipients.map((to) => ({ host, port, user, pass, to }));
 };
 
+export const configuredFeishu = (): FeishuConfig | undefined => {
+  const webhook = env("FEISHU_WEBHOOK_URL");
+  return webhook ? { webhook, secret: env("FEISHU_WEBHOOK_SECRET") } : undefined;
+};
+
 const buildChannels = (message: Message): Channel[] => {
   const channels: Channel[] = [];
 
@@ -69,14 +75,17 @@ const buildChannels = (message: Message): Channel[] => {
     console.warn("⚠️ 未配置 SMTP_HOST / SMTP_USER / SMTP_PASS / MAIL_TO，跳过邮件");
   }
 
+  const feishu = configuredFeishu();
+  if (feishu) channels.push({ name: "飞书", send: () => sendFeishu(feishu, message.subject, message.text) });
+
   return channels;
 };
 
-/** Sends the message to every configured Telegram chat and mailbox; throws if none is configured or any fails. */
+/** Sends the message to all configured destinations; throws if none is configured or any fails. */
 export const pushToAll = async (message: Message): Promise<void> => {
   const channels = buildChannels(message);
   if (channels.length === 0) {
-    throw new Error("Telegram 和邮件都没有配置，没有任何渠道可推送。请检查 GitHub Secrets 名称是否正确");
+    throw new Error("没有可用的推送渠道，请检查 Telegram、SMTP 或 FEISHU_WEBHOOK_URL 配置");
   }
 
   const results = await Promise.allSettled(channels.map(runChannel));

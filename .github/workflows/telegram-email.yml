@@ -1,13 +1,13 @@
 name: Telegram 频道邮件转发
-run-name: ${{ (github.event_name == 'schedule' || inputs.mode == 'scheduled') && 'Telegram 频道转发（定时）' || (inputs.mode == 'test-wechat' && 'Telegram 频道转发（微信测试）' || 'Telegram 频道转发（邮件测试）') }}
+run-name: ${{ (github.event_name == 'schedule' || inputs.mode == 'scheduled') && 'Telegram 频道转发（定时）' || (inputs.mode == 'test-wechat' && 'Telegram 频道转发（微信测试）' || inputs.mode == 'test-feishu' && 'Telegram 频道转发（飞书测试）' || 'Telegram 频道转发（邮件测试）') }}
 
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "test 测试邮件，test-wechat 测试个人微信，scheduled 检查新帖"
+        description: "test 测试邮件，test-wechat 测试个人微信，test-feishu 测试飞书，scheduled 检查新帖"
         type: choice
-        options: [test, test-wechat, scheduled]
+        options: [test, test-wechat, test-feishu, scheduled]
         default: test
   # 主触发为 cron-job.org 每分钟一次。此计划只作兜底，两种触发共用投递进度。
   schedule:
@@ -55,11 +55,15 @@ jobs:
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           SERVERCHAN_SENDKEY: ${{ secrets.SERVERCHAN_SENDKEY }}
           MAIL_TO: ${{ secrets.MAIL_TO }}
+          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+          FEISHU_WEBHOOK_SECRET: ${{ secrets.FEISHU_WEBHOOK_SECRET }}
         run: |
           if [[ "$MODE" == "test" ]]; then
             npm run telegram-email -- --test-email
           elif [[ "$MODE" == "test-wechat" ]]; then
             npm run telegram-email -- --test-wechat
+          elif [[ "$MODE" == "test-feishu" ]]; then
+            npm run telegram-email -- --test-feishu
           else
             npm run telegram-email
           fi
