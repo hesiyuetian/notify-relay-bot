@@ -20,6 +20,7 @@
     "telegram-email:dry-run": "node dist/telegram-relay/main.js --dry-run",
     "binance-copy": "node dist/binance-copy/main.js",
     "binance-copy:dry-run": "node dist/binance-copy/main.js --dry-run",
+    "binance-copy:resume": "node dist/binance-copy/main.js --resume",
     "test": "node --test \"test/**/*.test.ts\""
   },
   "dependencies": {

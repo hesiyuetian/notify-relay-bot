@@ -30,6 +30,8 @@ test("服务器 cron 在独立工作目录读取配置，加锁并按任务保�
       return result.stdout.trim();
     };
     assert.equal(run("github-trending", "--dry-run"), '["--dry-run"]');
+    assert.equal(run("binance-copy", "--resume"), '["--resume"]');
+    assert.equal(spawnSync("sh", [script, "github-trending", "--resume"], options).status, 2);
     assert.equal(spawnSync("sh", [script, "stocks"], {
       ...options, env: { ...options.env, FAIL_TASK: "1" },
     }).status, 17);

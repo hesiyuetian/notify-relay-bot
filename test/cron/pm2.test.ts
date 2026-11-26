@@ -30,7 +30,7 @@ test("PM2 部署预检检查所选任务，显示北京排期并立即退出", (
     assert.equal(check("PM2_TASKS=telegram-email\nFEISHU_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/test-token\n").status, 0);
     const binance = check("PM2_TASKS=binance-copy\nTELEGRAM_RELAY_CHANNELS=feishu\nFEISHU_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/test-token\n");
     assert.equal(binance.status, 0, binance.stderr);
-    assert.match(binance.stdout, /binance-copy  0,30 \* \* \* \* \* .*\d{2}:\d{2}:(00|30)\b/);
+    assert.match(binance.stdout, /binance-copy  45-60s 随机间隔/);
     assert.match(check("PM2_TASKS=binance-copy\nBINANCE_COPY_PORTFOLIO_ID=../test\n").stderr, /BINANCE_COPY_PORTFOLIO_ID/);
     assert.match(check("FEISHU_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/test-token\n").stderr, /配置可用的推送渠道/);
     assert.equal(check("PM2_TASKS=stocks\nSTOCKS_CHANNELS=feishu\nFEISHU_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/test-token\n").status, 0);

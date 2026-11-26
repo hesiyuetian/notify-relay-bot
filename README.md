@@ -73,30 +73,40 @@ node --env-file=.env dist/telegram-relay/main.js --test-feishu
 - **发送进度**：Actions 自动创建 `telegram-email-state` 独立分支，需允许工作流向该分支写入。进度库保存收件人地址哈希和帖子编号。并发任务排队；某个邮箱发送失败会在下次检查时重试。如果 SMTP 已接受邮件后任务突然中止，或保存分支失败，下次可能重复发送。
 - **本地运行**：在常开设备上先执行 `npm run build`，再用系统定时器每分钟从项目根目录运行一次 `node --env-file=.env dist/telegram-relay/main.js`。保留本地 `.telegram-email/` 目录。请在 Actions 和本地之间选一个正式运行位置，各自的进度独立。
 
-## 币安合约带单成交监控
+## 币安合约带单成交监控（仅服务器运行）
 
-`binance-copy` 每轮匿名请求币安网页的 `lead-portfolio/order-history` 一次，查询最近 2 天内的最新 10 条成交记录。默认带单组合为 `5075281354358777856`，通知标题标记为「熬鹰资本的最新操作」。通过 `BINANCE_COPY_PORTFOLIO_ID` 切换到其他组合时，通知标题使用「币安合约带单」。通知包含合约、买卖方向、成交数量、均价、盈亏、北京时间和组合链接。
+`binance-copy` **仅在独立 Linux 服务器上运行，不部署到 GitHub Actions**（GitHub 托管 Runner 多位于美国机房易触发 HTTP 451，且高频冷启动开销大；同时建议不要在与个人币安登录态共用出口 IP 的设备上轮询）。
 
-- 首次运行及新增接收端时，用当时可见的最新记录建立基线。之后每条新记录单独推送。记录按组合保存在 `.binance-copy/*.sqlite`，邮件、个人微信和飞书各自记录进度。已采集但投递失败的记录即使滚出最新 10 条也会重试。扩大单页数量时，首次基线以前的记录不会补发。
-- 两次成功查询之间若新增超过 10 条，较早的成交可能漏掉。拿不到重叠记录时任务会在日志提示。币安报繁忙或限流时任务会记录退避时间，优先遵循 `Retry-After`。
-- Linux 用 PM2 或系统 cron 在每分钟的第 0 和 30 秒触发。PM2 在 `PM2_TASKS` 中加入 `binance-copy`，系统 cron 启用模板中对应的两行。上一轮还在运行时会跳过重叠触发。
-- GitHub 使用 [binance-copy.yml](.github/workflows/binance-copy.yml)。手动运行默认是 `preview`。正式运行在 Actions Variables 设置 `BINANCE_COPY_ENABLED=true`，用 cron-job.org 每分钟派发 `mode=scheduled`，Actions 自带计划每 5 分钟兜底。每次正式运行约间隔 30 秒检查两轮，实际频率受 Runner 启动和排队影响。工作流从 `binance-copy-state` 分支读取和保存 SQLite，需要该分支的写权限。
+任务每轮匿名请求币安网页的 `lead-portfolio/order-history` 一次（无任何个人账号凭证或 Cookie），查询最近 2 天内的最新 10 条成交记录。默认带单组合为 `5075281354358777856`，通知标题标记为「熬鹰资本的最新操作」。通过 `BINANCE_COPY_PORTFOLIO_ID` 切换到其他组合时，通知标题使用「币安合约带单」。通知包含合约、买卖/开平方向（买入开多、卖出平多、卖出开空、买入平空）、成交数量、均价、盈亏、北京时间和组合链接。
 
-本地用 `npm run binance-copy:dry-run` 预览默认组合，或用 `node --env-file=.env dist/binance-copy/main.js --dry-run` 读取自定义组合。预览只打印成交。
+- **轮询频次与抖动**：优先使用 PM2 启动（在 `.env` 的 `PM2_TASKS` 加入 `binance-copy`），启动时先做 0-15 秒随机抖动，随后每轮结束后按 **45-60 秒随机间隔**持续查询。使用系统 cron 时可在模板中启用带 0-15 秒随机抖动的单行每分钟任务。上一轮仍在运行时会自动跳过重叠触发。
+- **基线与进度**：首次运行及新增接收端时，用当时可见的最新记录建立基线，之后每条新记录单独推送。记录按组合保存在 `.binance-copy/*.sqlite`，邮件、个人微信和飞书各自记录进度；已采集但投递失败的记录即使滚出最新 10 条也会重试，所有接收端均已投递且超过 7 天的旧记录会自动清理。扩大单页数量时，首次基线以前的记录不会补发。
+- **失败日志与退避熔断**：两次成功查询之间若新增超过 10 条，较早的成交可能漏掉并在日志提示。每次查询失败都会在日志打印**请求时间（北京时间）和返回结果**（仅含错误分类、Node 网络错误码、HTTP 状态及币安业务码，不暴露敏感文本）。遇到 `HTTP 429 / 403 / 418 / 451`、`Retry-After` 或繁忙业务码 `11012005` 时按以下策略退避：
+  1. 首次受限：暂停 **3 分钟**（若服务端返回的 `Retry-After` 更长则遵守服务端值，上限 24 小时）；
+  2. 第二次连续受限：暂停 **6 分钟**；
+  3. 若两次退避重试仍连续失败（共连续受限 3 次）：**自动停止后续币安请求**，并向已配置的飞书机器人发送停止告警通知，避免继续高频撞接口。
+- **人工恢复**：排查服务器网络或出口 IP 后，执行以下命令清除停止状态，下一次轮询会自动恢复请求：
+
+```bash
+./deploy/run-task.sh binance-copy --resume
+# 或直接运行：
+node --env-file=.env dist/binance-copy/main.js --resume
+```
+
+本地或服务器预览最新成交（只打印不推送）：`npm run binance-copy:dry-run`，或 `./deploy/run-task.sh binance-copy --dry-run`。
 
 ## 准点触发（cron-job.org）
 
-Actions 自带的定时任务不保证准点，高峰期可能延迟几个小时甚至被跳过，所以推送由 [cron-job.org](https://cron-job.org)（免费）到点调 GitHub API 触发，几十秒内就会开始运行。自带的定时任务保留作兜底：
+Actions 自带的定时任务不保证准点，高峰期可能延迟几个小时甚至被跳过，所以推送由 [cron-job.org](https://cron-job.org)（免费）到点调 GitHub API 触发，几十秒内就会开始运行。自带的定时任务保留作兜底（`binance-copy` 仅在服务器运行，不配置 GitHub Actions 触发）：
 
 | 工作流                            | cron-job.org 触发（北京时间）  | Actions 兜底 |
 | --------------------------------- | ------------------------------ | ------------ |
 | `telegram-relay.yml` Telegram 频道转发 | 每分钟                         | 每 5 分钟    |
-| `binance-copy.yml` 币安合约带单成交监控 | 每分钟派发，每次检查两轮      | 每 5 分钟    |
 | `daily.yml` GitHub 今日涨星       | 每天 22:00                     | 22:17        |
 | `ai-news.yml` AI 圈每日要闻       | 每天 08:00                     | 08:17        |
 | `stocks.yml` 每日潜力股           | 周一到周五 09:00（09:20 推送） | 09:10        |
 
-同一工作流的正式运行使用并发组。频道转发和币安监控按接收端保存投递进度。三个每日任务发现 12 小时内已成功推送就跳过（判断逻辑在 `already-pushed.yml`）。
+同一工作流的正式运行使用并发组。频道转发按接收端保存投递进度。三个每日任务发现 12 小时内已成功推送就跳过（判断逻辑在 `already-pushed.yml`）。
 
 配置一次即可：
 
@@ -107,14 +117,14 @@ Actions 自带的定时任务不保证准点，高峰期可能延迟几个小时
     - Advanced：Request method 选 **POST**；Headers 加 `Authorization: Bearer <token>` 和 `Accept: application/vnd.github+json`；Request body 填 `{"ref":"main","inputs":{"mode":"scheduled"}}`
 3. 保存后点 **Test run**，返回 204 即成功，Actions 页面会出现一条以「（定时）」结尾的运行。
 
-在 Actions 页面手动点 **Run workflow**，币安带单监控默认进入预览。其他任务默认进入 `test` 模式，立即推送（潜力股还会跳过交易日判断），运行名以「（测试）」结尾。
+在 Actions 页面手动点 **Run workflow**，默认进入 `test` 模式，立即推送（潜力股还会跳过交易日判断），运行名以「（测试）」结尾。
 
 ## 部署到 Linux 服务器（PM2）
 
-PM2 运行编译产物 `dist/pm2-scheduler.js`，进程名为 `notify-relay-bot-scheduler`，按北京时间调用现有的 `deploy/run-task.sh`。默认每分钟转发 Telegram 新帖、每天 22:00 推送 GitHub 涨星。币安带单监控、AI 要闻和潜力股按需启用。
+PM2 运行编译产物 `dist/pm2-scheduler.js`，进程名为 `notify-relay-bot-scheduler`，按北京时间调用现有的 `deploy/run-task.sh`。默认每分钟转发 Telegram 新帖、每天 22:00 推送 GitHub 涨星。币安带单监控（45-60 秒随机间隔）、AI 要闻和潜力股按需启用。
 
 1. 部署账号准备 Node.js ≥ 22.18、npm、PM2（可用 `npm install -g pm2` 安装）、`flock` 和 GNU `timeout`。新服务器先克隆仓库，已有部署直接进入项目目录。
-2. 在项目根目录用 `umask 077; cp -n .env.example .env` 准备配置，填写所需的邮箱、微信、飞书或 Telegram 凭据。用 `PM2_TASKS=telegram-email,github-trending` 选择任务；只迁移频道时填 `PM2_TASKS=telegram-email`。按需加入 `binance-copy`（每 30 秒）、`ai-news`（08:00）或 `stocks`（工作日 09:00 启动）。
+2. 在项目根目录用 `umask 077; cp -n .env.example .env` 准备配置，填写所需的邮箱、微信、飞书或 Telegram 凭据。用 `PM2_TASKS=telegram-email,github-trending` 选择任务；只迁移频道时填 `PM2_TASKS=telegram-email`。按需加入 `binance-copy`（45-60 秒随机轮询，仅服务器支持）、`ai-news`（08:00）或 `stocks`（工作日 09:00 启动）。
 3. 先按下方「投递进度与切换」完成同一任务的调度交接。从本机系统 cron 迁入时注释对应的 crontab 行，沿用同一目录的 `.cron/` 和 `.telegram-email/`；从 Actions 迁入时按说明导入频道进度。
 4. 运行部署脚本。它安装含 TypeScript 的构建依赖，执行 `npm run build`，校验编译后的调度器与配置，打印下一次执行时间，然后启动或重启同一个 PM2 进程，并用 `pm2 save` 保存部署账号的进程列表。编译或预检失败会在重启 PM2 前退出。每次触发直接运行对应的 `dist/` 入口。
 
@@ -177,7 +187,7 @@ git fetch origin refs/heads/telegram-email-state && mkdir .telegram-email &&
 
 以上导入用于首次迁移且尚无本地数据库的服务器。跳过导入时，首次运行从频道当前最新帖建立进度。每日任务建议在当天尚未推送时交接，或从次日开始。回切频道到 GitHub 时，先停止服务器任务，并把最终的 SQLite 文件同步回 `telegram-email-state` 分支，再恢复 GitHub 调度。
 
-迁移币安带单监控时使用相同的停用、同步、启用顺序，把上述分支和目录分别替换为 `binance-copy-state` 和 `.binance-copy`。
+`binance-copy` 仅在服务器运行，进度保存在本地 `.binance-copy/*.sqlite`；如需迁移到另一台服务器，先停止旧服务器调度，再复制 `.binance-copy/` 目录到新服务器即可接续进度。
 
 ## 本地运行
 

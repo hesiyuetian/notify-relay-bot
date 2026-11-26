@@ -8,9 +8,9 @@ PATH=/usr/local/bin:/usr/bin:/bin
 * * * * * "$APP_DIR/deploy/run-task.sh" telegram-email >> "$APP_DIR/.cron/tasks.log" 2>&1
 0 22 * * * "$APP_DIR/deploy/run-task.sh" github-trending >> "$APP_DIR/.cron/tasks.log" 2>&1
 
-# Binance polls at :00 and :30. Uncomment both entries to enable it.
-# * * * * * "$APP_DIR/deploy/run-task.sh" binance-copy >> "$APP_DIR/.cron/tasks.log" 2>&1
-# * * * * * sleep 30 && "$APP_DIR/deploy/run-task.sh" binance-copy >> "$APP_DIR/.cron/tasks.log" 2>&1
+# Binance copy-trading monitor (server-only). Prefer PM2 for 45-60s random polling;
+# with system cron, add 0-15s random jitter per minute so requests avoid :00 spikes.
+# * * * * * sleep $(( $(od -An -N1 -tu1 /dev/urandom) % 16 )) && "$APP_DIR/deploy/run-task.sh" binance-copy >> "$APP_DIR/.cron/tasks.log" 2>&1
 
 # Currently paused. Uncomment individual lines to enable them on this server.
 # 0 8 * * * "$APP_DIR/deploy/run-task.sh" ai-news >> "$APP_DIR/.cron/tasks.log" 2>&1

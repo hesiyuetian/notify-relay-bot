@@ -5,7 +5,7 @@ umask 077
 cd "$(dirname "$0")/.."
 
 usage() {
-  echo "Usage: $0 {github-trending|telegram-email|binance-copy|ai-news|stocks} [--dry-run]" >&2
+  echo "Usage: $0 {github-trending|telegram-email|binance-copy|ai-news|stocks} [--dry-run|--resume]" >&2
   exit 2
 }
 
@@ -21,12 +21,18 @@ case "$task" in
   stocks) limit=90m; entry="dist/stocks/main.js" ;;
   *) usage ;;
 esac
-if [ "$#" -eq 1 ] && [ "$1" != "--dry-run" ]; then usage; fi
+if [ "$#" -eq 1 ]; then
+  case "$1" in
+    --dry-run) ;;
+    --resume) [ "$task" = "binance-copy" ] || usage ;;
+    *) usage ;;
+  esac
+fi
 
 [ -f "$entry" ] || { echo "缺少 $entry，请先运行 npm run build。" >&2; exit 1; }
 node_bin=${NODE_BIN:-node}
 if [ "$#" -eq 1 ]; then
-  exec timeout --kill-after=30s "$limit" "$node_bin" --env-file=.env "$entry" --dry-run
+  exec timeout --kill-after=30s "$limit" "$node_bin" --env-file=.env "$entry" "$1"
 fi
 
 mkdir -p .cron
