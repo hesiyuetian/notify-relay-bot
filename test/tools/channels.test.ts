@@ -26,29 +26,33 @@ const withEnv = async (values: Record<string, string | undefined>, fn: () => voi
   }
 };
 
-test("各任务默认推送渠道：GitHub 涨星默认排除飞书，其余任务启用全部支持渠道", async () => {
+test("各任务默认启用支持的推送渠道，币安监控沿用频道转发", async () => {
   await withEnv({
     GITHUB_TRENDING_CHANNELS: undefined,
     AI_NEWS_CHANNELS: undefined,
     STOCKS_CHANNELS: undefined,
     TELEGRAM_RELAY_CHANNELS: undefined,
+    BINANCE_COPY_CHANNELS: undefined,
   }, () => {
-    assert.deepEqual([...enabledChannels("github-trending")], ["telegram", "email"]);
-    assert.deepEqual([...enabledChannels("ai-news")], ["telegram", "email", "feishu"]);
+    assert.deepEqual([...enabledChannels("github-trending")], ["telegram"]);
+    assert.deepEqual([...enabledChannels("ai-news")], ["telegram"]);
     assert.deepEqual([...enabledChannels("stocks")], ["telegram", "email", "feishu"]);
     assert.deepEqual([...enabledChannels("telegram-email")], ["email", "wechat", "feishu"]);
+    assert.deepEqual([...enabledChannels("binance-copy")], ["email", "wechat", "feishu"]);
   });
 });
 
 test("自定义任务推送渠道支持大小写、中英文逗号、留空回退默认，并拒绝无效渠道", async () => {
   await withEnv({
-    GITHUB_TRENDING_CHANNELS: " FEISHU，Email , email ",
+    STOCKS_CHANNELS: " FEISHU，Email , email ",
     AI_NEWS_CHANNELS: "   ",
     TELEGRAM_RELAY_CHANNELS: "feishu",
+    BINANCE_COPY_CHANNELS: undefined,
   }, () => {
-    assert.deepEqual([...enabledChannels("github-trending")], ["feishu", "email"]);
-    assert.deepEqual([...enabledChannels("ai-news")], ["telegram", "email", "feishu"]);
+    assert.deepEqual([...enabledChannels("stocks")], ["feishu", "email"]);
+    assert.deepEqual([...enabledChannels("ai-news")], ["telegram"]);
     assert.deepEqual([...enabledChannels("telegram-email")], ["feishu"]);
+    assert.deepEqual([...enabledChannels("binance-copy")], ["feishu"]);
   });
 
   await withEnv({ GITHUB_TRENDING_CHANNELS: "wechat" }, () => {
@@ -64,7 +68,7 @@ test("自定义任务推送渠道支持大小写、中英文逗号、留空回�
   });
 });
 
-test("pushToAll 按任务配置过滤推送渠道，GitHub 涨星默认不发飞书，自定义后可开启", async (t) => {
+test("pushToAll 按任务配置过滤推送渠道，潜力股可指定仅发送飞书", async (t) => {
   const calledHosts: string[] = [];
   t.mock.method(globalThis, "fetch", async (input: string | URL) => {
     const url = new URL(String(input));
@@ -84,7 +88,7 @@ test("pushToAll 按任务配置过滤推送渠道，GitHub 涨星默认不发飞
     SMTP_PASS: undefined,
     MAIL_TO: undefined,
     GITHUB_TRENDING_CHANNELS: undefined,
-    AI_NEWS_CHANNELS: undefined,
+    STOCKS_CHANNELS: undefined,
   };
 
   await withEnv(baseEnv, async () => {
@@ -93,14 +97,14 @@ test("pushToAll 按任务配置过滤推送渠道，GitHub 涨星默认不发飞
     assert.deepEqual(calledHosts, ["api.telegram.org"]);
 
     calledHosts.length = 0;
-    await pushToAll("ai-news", sampleMessage);
+    await pushToAll("stocks", sampleMessage);
     assert.deepEqual(calledHosts, ["api.telegram.org", "open.feishu.cn"]);
   });
 
-  await withEnv({ ...baseEnv, GITHUB_TRENDING_CHANNELS: "feishu" }, async () => {
+  await withEnv({ ...baseEnv, STOCKS_CHANNELS: "feishu" }, async () => {
     calledHosts.length = 0;
-    assert.deepEqual(configuredChannelsFor("github-trending"), ["feishu"]);
-    await pushToAll("github-trending", sampleMessage);
+    assert.deepEqual(configuredChannelsFor("stocks"), ["feishu"]);
+    await pushToAll("stocks", sampleMessage);
     assert.deepEqual(calledHosts, ["open.feishu.cn"]);
   });
 
@@ -108,7 +112,7 @@ test("pushToAll 按任务配置过滤推送渠道，GitHub 涨星默认不发飞
     assert.deepEqual(configuredChannelsFor("github-trending"), []);
     await assert.rejects(
       pushToAll("github-trending", sampleMessage),
-      /没有可用的推送渠道（当前允许：telegram、email）.*GITHUB_TRENDING_CHANNELS/,
+      /没有可用的推送渠道（当前允许：telegram）.*GITHUB_TRENDING_CHANNELS/,
     );
   });
 });

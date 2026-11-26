@@ -15,11 +15,12 @@ test("PM2 部署预检检查所选任务，显示北京排期并立即退出", (
     copyFileSync(new URL("dist/pm2-scheduler.js", root), entry);
     symlinkSync(new URL("node_modules/", root), join(dir, "node_modules"), "dir");
     symlinkSync(new URL("dist/tools/", root), join(dir, "dist/tools"), "dir");
+    symlinkSync(new URL("dist/binance-copy/", root), join(dir, "dist/binance-copy"), "dir");
     const check = (configuration: string) => {
       writeFileSync(join(dir, ".env"), configuration);
       return spawnSync(process.execPath, [entry, "--check"], { cwd: tmpdir(), env: { TZ: "UTC" }, encoding: "utf8", timeout: 5000 });
     };
-    const valid = check("SMTP_HOST=test\nSMTP_USER=test\nSMTP_PASS=test\nMAIL_TO=test@example.test\n");
+    const valid = check("SMTP_HOST=test\nSMTP_USER=test\nSMTP_PASS=test\nMAIL_TO=test@example.test\nTELEGRAM_BOT_TOKEN=test\nTELEGRAM_CHAT_ID=test\n");
     assert.equal(valid.status, 0, valid.error?.message ?? valid.stderr);
     assert.match(valid.stdout, /telegram-email  \* \* \* \* \*/);
     assert.match(valid.stdout, /github-trending  0 22 \* \* \*.*22:00:00/);
@@ -27,8 +28,12 @@ test("PM2 部署预检检查所选任务，显示北京排期并立即退出", (
     assert.equal(check("PM2_TASKS=telegram-email\nSERVERCHAN_SENDKEY=test\nWECHAT_PUSH_ENABLED=true\n").status, 0);
     assert.match(check("PM2_TASKS=telegram-email\nSERVERCHAN_SENDKEY=test\n").stderr, /配置可用的推送渠道/);
     assert.equal(check("PM2_TASKS=telegram-email\nFEISHU_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/test-token\n").status, 0);
+    const binance = check("PM2_TASKS=binance-copy\nTELEGRAM_RELAY_CHANNELS=feishu\nFEISHU_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/test-token\n");
+    assert.equal(binance.status, 0, binance.stderr);
+    assert.match(binance.stdout, /binance-copy  0,30 \* \* \* \* \* .*\d{2}:\d{2}:(00|30)\b/);
+    assert.match(check("PM2_TASKS=binance-copy\nBINANCE_COPY_PORTFOLIO_ID=../test\n").stderr, /BINANCE_COPY_PORTFOLIO_ID/);
     assert.match(check("FEISHU_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/test-token\n").stderr, /配置可用的推送渠道/);
-    assert.equal(check("PM2_TASKS=github-trending\nGITHUB_TRENDING_CHANNELS=feishu\nFEISHU_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/test-token\n").status, 0);
+    assert.equal(check("PM2_TASKS=stocks\nSTOCKS_CHANNELS=feishu\nFEISHU_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/test-token\n").status, 0);
     assert.match(check("PM2_TASKS=github-trending\nGITHUB_TRENDING_CHANNELS=wechat\nFEISHU_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/test-token\n").stderr, /不支持的渠道/);
     assert.match(check("PM2_TASKS=unknown").stderr, /未知任务/);
     assert.match(check("PM2_TASKS=github-trending\nSERVERCHAN_SENDKEY=test").stderr, /配置可用的推送渠道/);

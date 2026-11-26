@@ -9,7 +9,7 @@ import test from "node:test";
 test("服务器 cron 在独立工作目录读取配置，加锁并按任务保存成功状态", { skip: process.platform !== "linux" }, () => {
   const dir = mkdtempSync(join(tmpdir(), "server cron "));
   try {
-    const entries = ["telegram-relay", "github-trending", "ai-news", "stocks"];
+    const entries = ["telegram-relay", "binance-copy", "github-trending", "ai-news", "stocks"];
     mkdirSync(join(dir, "deploy"));
     const script = join(dir, "deploy/run-task.sh");
     copyFileSync(new URL("../../deploy/run-task.sh", import.meta.url), script);
@@ -38,11 +38,13 @@ test("服务器 cron 在独立工作目录读取配置，加锁并按任务保�
       assert.match(readFileSync(join(dir, ".cron", task + ".last-success"), "utf8"), /^\d{4}-\d{2}-\d{2}\n$/);
       assert.equal(run(task), "");
     }
-    assert.equal(run("telegram-email"), "[]");
-    assert.equal(run("telegram-email"), "[]");
-    const held = spawnSync("flock", [join(dir, ".cron/telegram-email.lock"), "sh", script, "telegram-email"], options);
-    assert.equal(held.status, 0, held.stderr);
-    assert.equal(held.stdout, "");
+    for (const task of ["telegram-email", "binance-copy"]) {
+      assert.equal(run(task), "[]");
+      assert.equal(run(task), "[]");
+      const held = spawnSync("flock", [join(dir, `.cron/${task}.lock`), "sh", script, task], options);
+      assert.equal(held.status, 0, held.stderr);
+      assert.equal(held.stdout, "");
+    }
     assert.equal(spawnSync("sh", [script, "stocks", "--force"], options).status, 2);
   } finally {
     rmSync(dir, { recursive: true, force: true });

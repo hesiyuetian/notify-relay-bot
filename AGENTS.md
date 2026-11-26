@@ -23,6 +23,7 @@
 - 服务器通过项目根目录的 `.env` 配置。GitHub Actions 用 **Secrets** 保存凭据和收件人，用 **Variables** 配置 `TELEGRAM_CHANNEL`、`*_CHANNELS` 等非敏感选项。新增配置时同步更新适用的部署入口、`.env.example` 和说明，示例只填写公开默认值或占位值。
 - `MAIL_TO` 支持逗号分隔的多个地址，每位收件人单独投递。Telegram Bot 收件人用 `TELEGRAM_CHAT_ID`，转发来源用 `TELEGRAM_CHANNEL`，个人微信用 `SERVERCHAN_SENDKEY`。凭据、真实收件地址和聊天 ID 留在部署配置中，日志使用渠道名、收件人序号和帖子编号。
 - Telegram 频道按频道和接收端分别保存投递进度。首次启用的频道或接收端从当时的最新帖建立基线，已有进度的按帖子编号补发。只在服务接受投递后推进该接收端的进度，保留失败或限流后的重试行为。
+- 币安监控每轮查询带单组合最近 2 天内的最新 10 条成交，账户凭据无需注入。首次启用的组合或接收端用当前记录建立基线。按组合和接收端保存进度，发送失败时保留已采集记录，来源限流后保留退避时间。
 - 日期、显示时间和服务器排期使用 `Asia/Shanghai`。GitHub workflow 中现有 cron 表达式用 UTC，修改时做好换算。潜力股正式任务保留交易日检查和 09:15 的行情采集截止判断，默认 09:20 推送。
 - 保留本地预览和正式投递的区别。`--dry-run` 可请求公开数据并输出内容，遇到需要验证发送的改动时，优先使用模拟接口或测试收件人。GitHub 的 `test`、`test-wechat` 和 `test-feishu` 会真实投递，使用前确认运行意图。
 
@@ -35,11 +36,12 @@
 
 ## 任务与排期
 
-下表记录代码和模板中的排期，生产启停以各部署环境的实际配置为准。服务器模板默认启用频道转发和 GitHub 涨星，AI 要闻和潜力股按需开启。
+下表记录代码和模板中的排期，生产启停以各部署环境的实际配置为准。服务器模板默认启用频道转发和 GitHub 涨星，其余任务按需开启。
 
 | 任务名            | GitHub workflow      | 主排期（北京时间）                   | GitHub 自带计划 |
 | ----------------- | -------------------- | ------------------------------------ | --------------- |
 | `telegram-email`  | `telegram-relay.yml` | 每分钟检查                           | 每 5 分钟       |
+| `binance-copy`    | `binance-copy.yml`   | Linux 每 30 秒，外部每分钟派发两轮   | 每 5 分钟       |
 | `github-trending` | `daily.yml`          | 每天 22:00                           | 22:17           |
 | `ai-news`         | `ai-news.yml`        | 每天 08:00                           | 08:17           |
 | `stocks`          | `stocks.yml`         | 工作日 09:00 启动，交易日 09:20 推送 | 工作日 09:10    |
@@ -48,7 +50,7 @@
 
 1. 配置仓库 Actions Secrets 和 Variables，确认对应任务已启用。发布到默认分支 `main` 后，后续运行使用对应版本的代码。
 2. 由 cron-job.org 通过 `workflow_dispatch` 传入 `mode=scheduled`，GitHub 自带的 `schedule` 作为兜底。正式运行使用工作流的并发组。每日任务通过 [already-pushed.yml](.github/workflows/already-pushed.yml) 检查最近 12 小时内成功的正式推送。
-3. Runner 安装依赖并执行 `npm test`，编译和测试通过后运行对应的 `dist/` 入口。频道正式任务从 `telegram-email-state` 分支恢复 SQLite，在运行后保存投递进度，包括部分接收端成功的进度。
+3. Runner 安装依赖并执行 `npm test`，编译和测试通过后运行对应的 `dist/` 入口。频道转发和币安监控分别从 `telegram-email-state` 和 `binance-copy-state` 恢复 SQLite，在运行后保存投递进度，包括部分接收端成功的进度。币安正式任务通过 Actions Variable `BINANCE_COPY_ENABLED=true` 启用，每次派发约间隔 30 秒检查两轮。
 4. 上线后检查相应工作流的构建、运行和进度保存结果。暂停一个任务时，同时停用对应的 cron-job.org 任务和 GitHub workflow。
 
 ## Linux 服务器部署流程
@@ -56,7 +58,7 @@
 1. 用同一个部署账号拉取代码、配置 `.env` 和运行任务。服务器需要 Node.js ≥ 22.18、npm、`flock` 和 GNU `timeout`。按任务选择 PM2 或系统 cron。
 2. **PM2**。安装 PM2，在 `.env` 设置 `PM2_TASKS`，运行 [pm2-deploy.sh](deploy/pm2-deploy.sh)。脚本依次安装依赖、编译、预检，用 PM2 启动或重启 `notify-relay-bot-scheduler` 并保存进程列表。调度器运行 `dist/pm2-scheduler.js`，按排期调用 [run-task.sh](deploy/run-task.sh)。更新用 `git pull --ff-only` 后重跑部署脚本，使用 `pm2 status notify-relay-bot-scheduler` 和 `pm2 logs notify-relay-bot-scheduler --lines 50` 验证。
 3. **系统 cron**。安装含开发依赖的项目依赖，执行 `npm run build`，创建日志所需的 `.cron/`，再按 [crontab.example](deploy/crontab.example) 配置绝对路径和时区。每次触发由 `run-task.sh` 加载 `.env` 并运行编译产物。更新代码后先重新编译，再检查 cron 日志。
-4. **运行状态**。PM2 与系统 cron 共用同一目录的任务锁和成功记录 `.cron/`，频道进度保存在 `.telegram-email/*.sqlite`。更新部署时保留这两个目录和 `.env`。
+4. **运行状态**。PM2 与系统 cron 共用同一目录的任务锁和成功记录 `.cron/`。频道进度保存在 `.telegram-email/*.sqlite`，币安监控进度保存在 `.binance-copy/*.sqlite`。更新部署时保留这些目录和 `.env`。
 
 ## 调度交接
 

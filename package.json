@@ -18,6 +18,8 @@
     "ai-news:dry-run": "node dist/ai-news/main.js --dry-run",
     "telegram-email": "node dist/telegram-relay/main.js",
     "telegram-email:dry-run": "node dist/telegram-relay/main.js --dry-run",
+    "binance-copy": "node dist/binance-copy/main.js",
+    "binance-copy:dry-run": "node dist/binance-copy/main.js --dry-run",
     "test": "node --test \"test/**/*.test.ts\""
   },
   "dependencies": {

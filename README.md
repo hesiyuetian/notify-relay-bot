@@ -1,10 +1,10 @@
 # notify-relay-bot
 
-每天北京时间 22:00 抓取 [GitHub Trending](https://github.com/trending?since=daily)，按 **今日涨星数** 排序取前 10，推送到 Telegram Bot 和邮箱。每条包含：仓库名、说明、仓库地址、今日涨星、总星数、语言。
+每天北京时间 22:00 抓取 [GitHub Trending](https://github.com/trending?since=daily)，按 **今日涨星数** 排序取前 10，推送到 Telegram Bot。每条包含仓库名、说明、仓库地址、今日涨星、总星数和语言。
 
 GitHub 没有 Trending 官方 API，所以脚本解析 Trending 页面（约 25 个仓库），再按 "stars today" 重新排序。
 
-另外还有两个推送，三个任务共用同一套 Telegram / 邮箱配置：
+另外还有两个每日任务，三个任务共用 Telegram Bot 配置：
 
 - **每天北京时间 08:00**：AI 圈过去 24 小时的 10 条要闻，用 Claude 或 ChatGPT 挑选和写中文摘要（见下方「AI 圈每日要闻」）。
 - **每个 A 股交易日北京时间 09:20**：10 只当日潜力股，每只附推荐理由，可选 AI 选股和点评（见下方「每日潜力股」）。
@@ -23,6 +23,7 @@ GitHub 没有 Trending 官方 API，所以脚本解析 Trending 页面（约 25 
 | `SMTP_USER`             | 发件邮箱地址                                                                                                                                        |
 | `SMTP_PASS`             | **不是登录密码**：Gmail 用「应用专用密码」，QQ/163 用「SMTP 授权码」                                                                                |
 | `MAIL_TO`               | 收件地址，多个用英文逗号分隔，每人单独发一封（互相看不到对方地址）                                                                                  |
+| `SERVERCHAN_SENDKEY`    | 个人微信所用的 Server酱 Turbo SendKey，另需在 Variables 中启用 `WECHAT_PUSH_ENABLED` |
 | `FEISHU_WEBHOOK_URL`    | 可选，飞书群自定义机器人的 Webhook 地址                                                                                                             |
 | `FEISHU_WEBHOOK_SECRET` | 使用机器人签名校验时填写机器人的签名密钥                                                                                                            |
 | `ANTHROPIC_API_KEY`     | 可选，AI 要闻和潜力股 AI 选股用 Claude。在 [Claude Console](https://platform.claude.com) 创建，按用量单独计费，和 Claude Pro 订阅无关               |
@@ -30,7 +31,7 @@ GitHub 没有 Trending 官方 API，所以脚本解析 Trending 页面（约 25 
 
 3. 打开 **Actions** 标签 → 选「GitHub 今日涨星推送」→ **Run workflow** 手动跑一次，确认收到。之后每天自动执行。「AI 圈每日要闻推送」「每日潜力股推送」同理，潜力股手动运行时会跳过交易日判断并立即推送。
 
-邮箱、Telegram Bot 和飞书按任务启用且已配置的渠道独立投递。频道转发另外支持个人微信。各任务可通过环境变量或 GitHub Actions Variables 自定义推送渠道。
+邮箱、Telegram Bot 和飞书按任务启用且已配置的渠道独立投递。频道转发和币安带单监控也支持个人微信。各任务可通过环境变量或 GitHub Actions Variables 自定义推送渠道。
 
 ## 任务推送渠道
 
@@ -38,17 +39,18 @@ GitHub 没有 Trending 官方 API，所以脚本解析 Trending 页面（约 25 
 
 | 任务              | 变量名                     | 可选渠道                   | 默认值                  |
 | ----------------- | -------------------------- | -------------------------- | ----------------------- |
-| `github-trending` | `GITHUB_TRENDING_CHANNELS` | `telegram`, `email`, `feishu` | `telegram,email`（不推飞书） |
-| `ai-news`         | `AI_NEWS_CHANNELS`         | `telegram`, `email`, `feishu` | `telegram,email,feishu` |
+| `github-trending` | `GITHUB_TRENDING_CHANNELS` | `telegram`                | `telegram`              |
+| `ai-news`         | `AI_NEWS_CHANNELS`         | `telegram`                | `telegram`              |
 | `stocks`          | `STOCKS_CHANNELS`          | `telegram`, `email`, `feishu` | `telegram,email,feishu` |
 | `telegram-email`  | `TELEGRAM_RELAY_CHANNELS`  | `email`, `wechat`, `feishu`   | `email,wechat,feishu`   |
+| `binance-copy`    | `BINANCE_COPY_CHANNELS`    | `email`, `wechat`, `feishu`   | 沿用 `TELEGRAM_RELAY_CHANNELS` |
 
 - 只有同时满足「在任务推送渠道中启用」和「已配置对应凭据」的渠道才会发送（个人微信另需 `WECHAT_PUSH_ENABLED=true`）。
 - 填写不支持的渠道名会在运行或 PM2 预检时报错；`telegram-relay` 的 `--test-*` 测试命令只检查被测试渠道本身，不受 `TELEGRAM_RELAY_CHANNELS` 限制。
 
 ## 飞书群推送
 
-四个任务都支持推送到同一个配置的飞书群（其中 GitHub 今日涨星默认关闭飞书推送，可在上方 `GITHUB_TRENDING_CHANNELS` 中按需开启）。新启用的飞书接收端从 Telegram 频道当时的最新帖建立基线，之后按帖子编号独立保存投递进度。
+支持飞书的任务共用已配置的飞书群机器人。Telegram 频道转发和币安带单监控为每个新启用的飞书接收端建立基线，之后独立保存投递进度。
 
 1. 打开目标飞书群，在群设置的「群机器人」里添加「自定义机器人」，复制 Webhook。选择「签名校验」时，同时复制签名密钥。如使用自定义关键词，确保要接收的通知正文或标题包含其中一个关键词。[飞书配置说明](https://open.feishu.cn/document/client-docs/bot-v3/add-custom-bot)
 2. GitHub Actions 在仓库 Secrets 中添加 `FEISHU_WEBHOOK_URL` 和启用签名时所需的 `FEISHU_WEBHOOK_SECRET`。PM2 或系统 cron 在服务器 `.env` 填写同名变量。修改 PM2 配置后重跑 `./deploy/pm2-deploy.sh`，系统 cron 的下一次任务会读取新配置。
@@ -71,6 +73,17 @@ node --env-file=.env dist/telegram-relay/main.js --test-feishu
 - **发送进度**：Actions 自动创建 `telegram-email-state` 独立分支，需允许工作流向该分支写入。进度库保存收件人地址哈希和帖子编号。并发任务排队；某个邮箱发送失败会在下次检查时重试。如果 SMTP 已接受邮件后任务突然中止，或保存分支失败，下次可能重复发送。
 - **本地运行**：在常开设备上先执行 `npm run build`，再用系统定时器每分钟从项目根目录运行一次 `node --env-file=.env dist/telegram-relay/main.js`。保留本地 `.telegram-email/` 目录。请在 Actions 和本地之间选一个正式运行位置，各自的进度独立。
 
+## 币安合约带单成交监控
+
+`binance-copy` 每轮匿名请求币安网页的 `lead-portfolio/order-history` 一次，查询最近 2 天内的最新 10 条成交记录。默认带单组合为 `5075281354358777856`，通知标题标记为「熬鹰资本的最新操作」。通过 `BINANCE_COPY_PORTFOLIO_ID` 切换到其他组合时，通知标题使用「币安合约带单」。通知包含合约、买卖方向、成交数量、均价、盈亏、北京时间和组合链接。
+
+- 首次运行及新增接收端时，用当时可见的最新记录建立基线。之后每条新记录单独推送。记录按组合保存在 `.binance-copy/*.sqlite`，邮件、个人微信和飞书各自记录进度。已采集但投递失败的记录即使滚出最新 10 条也会重试。扩大单页数量时，首次基线以前的记录不会补发。
+- 两次成功查询之间若新增超过 10 条，较早的成交可能漏掉。拿不到重叠记录时任务会在日志提示。币安报繁忙或限流时任务会记录退避时间，优先遵循 `Retry-After`。
+- Linux 用 PM2 或系统 cron 在每分钟的第 0 和 30 秒触发。PM2 在 `PM2_TASKS` 中加入 `binance-copy`，系统 cron 启用模板中对应的两行。上一轮还在运行时会跳过重叠触发。
+- GitHub 使用 [binance-copy.yml](.github/workflows/binance-copy.yml)。手动运行默认是 `preview`。正式运行在 Actions Variables 设置 `BINANCE_COPY_ENABLED=true`，用 cron-job.org 每分钟派发 `mode=scheduled`，Actions 自带计划每 5 分钟兜底。每次正式运行约间隔 30 秒检查两轮，实际频率受 Runner 启动和排队影响。工作流从 `binance-copy-state` 分支读取和保存 SQLite，需要该分支的写权限。
+
+本地用 `npm run binance-copy:dry-run` 预览默认组合，或用 `node --env-file=.env dist/binance-copy/main.js --dry-run` 读取自定义组合。预览只打印成交。
+
 ## 准点触发（cron-job.org）
 
 Actions 自带的定时任务不保证准点，高峰期可能延迟几个小时甚至被跳过，所以推送由 [cron-job.org](https://cron-job.org)（免费）到点调 GitHub API 触发，几十秒内就会开始运行。自带的定时任务保留作兜底：
@@ -78,11 +91,12 @@ Actions 自带的定时任务不保证准点，高峰期可能延迟几个小时
 | 工作流                            | cron-job.org 触发（北京时间）  | Actions 兜底 |
 | --------------------------------- | ------------------------------ | ------------ |
 | `telegram-relay.yml` Telegram 频道转发 | 每分钟                         | 每 5 分钟    |
+| `binance-copy.yml` 币安合约带单成交监控 | 每分钟派发，每次检查两轮      | 每 5 分钟    |
 | `daily.yml` GitHub 今日涨星       | 每天 22:00                     | 22:17        |
 | `ai-news.yml` AI 圈每日要闻       | 每天 08:00                     | 08:17        |
 | `stocks.yml` 每日潜力股           | 周一到周五 09:00（09:20 推送） | 09:10        |
 
-同一工作流的运行按并发组排队。频道邮件按每个收件人的帖子编号去重。其他三个工作流发现 12 小时内已成功推送就跳过（判断逻辑在 `already-pushed.yml`）。
+同一工作流的正式运行使用并发组。频道转发和币安监控按接收端保存投递进度。三个每日任务发现 12 小时内已成功推送就跳过（判断逻辑在 `already-pushed.yml`）。
 
 配置一次即可：
 
@@ -93,14 +107,14 @@ Actions 自带的定时任务不保证准点，高峰期可能延迟几个小时
     - Advanced：Request method 选 **POST**；Headers 加 `Authorization: Bearer <token>` 和 `Accept: application/vnd.github+json`；Request body 填 `{"ref":"main","inputs":{"mode":"scheduled"}}`
 3. 保存后点 **Test run**，返回 204 即成功，Actions 页面会出现一条以「（定时）」结尾的运行。
 
-在 Actions 页面手动点 **Run workflow** 默认是 `test` 模式：立即推送（潜力股还会跳过交易日判断），运行名以「（测试）」结尾，不影响正式推送的防重复判断。
+在 Actions 页面手动点 **Run workflow**，币安带单监控默认进入预览。其他任务默认进入 `test` 模式，立即推送（潜力股还会跳过交易日判断），运行名以「（测试）」结尾。
 
 ## 部署到 Linux 服务器（PM2）
 
-PM2 运行编译产物 `dist/pm2-scheduler.js`，进程名为 `notify-relay-bot-scheduler`，按北京时间调用现有的 `deploy/run-task.sh`。默认每分钟转发 Telegram 新帖、每天 22:00 推送 GitHub 涨星。AI 要闻和潜力股默认暂停。
+PM2 运行编译产物 `dist/pm2-scheduler.js`，进程名为 `notify-relay-bot-scheduler`，按北京时间调用现有的 `deploy/run-task.sh`。默认每分钟转发 Telegram 新帖、每天 22:00 推送 GitHub 涨星。币安带单监控、AI 要闻和潜力股按需启用。
 
 1. 部署账号准备 Node.js ≥ 22.18、npm、PM2（可用 `npm install -g pm2` 安装）、`flock` 和 GNU `timeout`。新服务器先克隆仓库，已有部署直接进入项目目录。
-2. 在项目根目录用 `umask 077; cp -n .env.example .env` 准备配置，填写所需的邮箱、微信或 Telegram 凭据。用 `PM2_TASKS=telegram-email,github-trending` 选择任务；只迁移频道时填 `PM2_TASKS=telegram-email`。按需加入 `ai-news`（08:00）或 `stocks`（工作日 09:00 启动）。
+2. 在项目根目录用 `umask 077; cp -n .env.example .env` 准备配置，填写所需的邮箱、微信、飞书或 Telegram 凭据。用 `PM2_TASKS=telegram-email,github-trending` 选择任务；只迁移频道时填 `PM2_TASKS=telegram-email`。按需加入 `binance-copy`（每 30 秒）、`ai-news`（08:00）或 `stocks`（工作日 09:00 启动）。
 3. 先按下方「投递进度与切换」完成同一任务的调度交接。从本机系统 cron 迁入时注释对应的 crontab 行，沿用同一目录的 `.cron/` 和 `.telegram-email/`；从 Actions 迁入时按说明导入频道进度。
 4. 运行部署脚本。它安装含 TypeScript 的构建依赖，执行 `npm run build`，校验编译后的调度器与配置，打印下一次执行时间，然后启动或重启同一个 PM2 进程，并用 `pm2 save` 保存部署账号的进程列表。编译或预检失败会在重启 PM2 前退出。每次触发直接运行对应的 `dist/` 入口。
 
@@ -116,7 +130,7 @@ pm2 logs notify-relay-bot-scheduler --lines 50
 
 ## 部署到 Linux 服务器（系统 cron）
 
-服务器 cron 和 GitHub Actions 共用四个编译后的 `dist/` 入口。每个任务可以单独选运行位置，例如让服务器每分钟转发频道，GitHub Actions 继续推送每日涨星。同一任务在两端都有正式调度时，两个环境的进度独立，可能重复发信。
+服务器 cron 和 GitHub Actions 共用编译后的 `dist/` 入口。每个任务可以单独选运行位置，例如让服务器每分钟转发频道，GitHub Actions 继续推送每日涨星。同一任务在两端都有正式调度时，两个环境的进度独立，可能重复发信。
 
 ### 首次部署
 
@@ -138,19 +152,20 @@ node --version
 
 ```bash
 ./deploy/run-task.sh telegram-email --dry-run
+./deploy/run-task.sh binance-copy --dry-run
 ```
 
 ### 定时和启停
 
 用部署账号执行 `crontab -e`，把 [服务器 crontab 模板](deploy/crontab.example) 中需要的配置追加进去。将 `APP_DIR` 改成部署目录，`NODE_BIN` 改成上一步 `command -v node` 输出的绝对路径。使用 NVM 时也填写该路径。保存后用 `crontab -l` 核对，用 `tail -f /opt/notify-relay-bot/.cron/tasks.log` 查看运行结果。为该日志配置服务器的日志轮转。
 
-模板启用每分钟频道检查和北京时间 22:00 的 GitHub 涨星。AI 要闻和潜力股两行默认注释。恢复时取消对应注释即可。潜力股正式任务在工作日 09:00 启动，沿用交易日判断和默认 09:20 推送时间。
+模板启用每分钟频道检查和北京时间 22:00 的 GitHub 涨星。币安带单监控、AI 要闻和潜力股默认注释，按需取消对应注释。潜力股正式任务在工作日 09:00 启动，沿用交易日判断和默认 09:20 推送时间。
 
 模板按北京时间填写。`CRON_TZ` 需要 cron 守护进程支持（如 Cronie）。若服务器的 cron 使用 UTC 且不支持 `CRON_TZ`，将涨星、AI 要闻、潜力股的触发时间分别改为 **14:00、00:00、工作日 01:00 UTC**。每分钟任务无需换算。
 
 ### 投递进度与切换
 
-每个服务器任务独立加锁。上一轮仍在运行时会跳过重叠触发。三个每日任务成功后在 `.cron/` 记录北京时间日期，同日再次触发会跳过。失败会返回非零状态，修复后可用同一命令重试。频道转发按 `.telegram-email/*.sqlite` 中每个频道、每个接收端的进度补发。更新代码时保留 `.env`、`.cron/` 和 `.telegram-email/`。
+每个服务器任务独立加锁。上一轮仍在运行时会跳过重叠触发。三个每日任务成功后在 `.cron/` 记录北京时间日期，同日再次触发会跳过。失败会返回非零状态，修复后可用同一命令重试。频道转发使用 `.telegram-email/*.sqlite`，币安监控使用 `.binance-copy/*.sqlite`。更新代码时保留这两个进度目录以及 `.env` 和 `.cron/`。
 
 从 GitHub 切到服务器时，先用 `--dry-run` 验证连接，再暂停对应的 cron-job.org 任务和 GitHub 工作流，等已启动的运行结束。首次迁移频道且希望接续原进度时，在启用服务器 cron **之前**，从最新状态分支导入数据库到空的状态目录：
 
@@ -161,6 +176,8 @@ git fetch origin refs/heads/telegram-email-state && mkdir .telegram-email &&
 ```
 
 以上导入用于首次迁移且尚无本地数据库的服务器。跳过导入时，首次运行从频道当前最新帖建立进度。每日任务建议在当天尚未推送时交接，或从次日开始。回切频道到 GitHub 时，先停止服务器任务，并把最终的 SQLite 文件同步回 `telegram-email-state` 分支，再恢复 GitHub 调度。
+
+迁移币安带单监控时使用相同的停用、同步、启用顺序，把上述分支和目录分别替换为 `binance-copy-state` 和 `.binance-copy`。
 
 ## 本地运行
 
@@ -266,6 +283,7 @@ src/
   ai-news/          AI 圈要闻：抓取、合并打分、AI 总结、排版、入口 main.ts
     sources/        RSS、Hacker News、HF Daily Papers
   telegram-relay/   Telegram 频道公开页读取、逐接收端进度和多渠道转发
+  binance-copy/     币安带单成交采集、去重、逐接收端进度和排版
   stocks/           每日潜力股：交易日历、筛选打分、排版、入口 main.ts
     sources/        行情数据源：东方财富、新浪 + 腾讯（备用）
 test/               与 src 同结构

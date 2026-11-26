@@ -5,16 +5,18 @@ umask 077
 cd "$(dirname "$0")/.."
 
 usage() {
-  echo "Usage: $0 {github-trending|telegram-email|ai-news|stocks} [--dry-run]" >&2
+  echo "Usage: $0 {github-trending|telegram-email|binance-copy|ai-news|stocks} [--dry-run]" >&2
   exit 2
 }
 
 [ "$#" -ge 1 ] && [ "$#" -le 2 ] || usage
 task=$1
 shift
+daily=true
 case "$task" in
   github-trending) limit=10m; entry="dist/github-trending/main.js" ;;
-  telegram-email) limit=10m; entry="dist/telegram-relay/main.js" ;;
+  telegram-email) daily=false; limit=10m; entry="dist/telegram-relay/main.js" ;;
+  binance-copy) daily=false; limit=2m; entry="dist/binance-copy/main.js" ;;
   ai-news) limit=15m; entry="dist/ai-news/main.js" ;;
   stocks) limit=90m; entry="dist/stocks/main.js" ;;
   *) usage ;;
@@ -35,15 +37,15 @@ flock -n -E 75 9 || {
   exit "$status"
 }
 
-# Daily jobs can be retried after a failure. The channel tracks individual posts in SQLite.
-day=$(TZ=Asia/Shanghai date +%F)
-stamp=".cron/$task.last-success"
-if [ "$task" != telegram-email ] && [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$day" ]; then
-  exit 0
+# Daily jobs can be retried after a failure. Polling tasks keep delivery progress in SQLite.
+if [ "$daily" = true ]; then
+  day=$(TZ=Asia/Shanghai date +%F)
+  stamp=".cron/$task.last-success"
+  if [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$day" ]; then exit 0; fi
 fi
 
 timeout --kill-after=30s "$limit" "$node_bin" --env-file=.env "$entry"
-if [ "$task" != telegram-email ]; then
+if [ "$daily" = true ]; then
   echo "$day" > "$stamp.tmp"
   mv -f "$stamp.tmp" "$stamp"
 fi

@@ -1,5 +1,6 @@
 node_modules/
 .env
 .telegram-email/
+.binance-copy/
 .cron/
 dist/

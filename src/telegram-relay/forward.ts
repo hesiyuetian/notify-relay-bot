@@ -1,18 +1,10 @@
 import { createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
+import { DeliveryDeferred } from "../tools/delivery.ts";
+import type { Recipient as RelayRecipient } from "../tools/relay.ts";
 import { since, type Page, type Post } from "./channel.ts";
 
-export class DeliveryDeferred extends Error {
-  readonly code: string;
-  readonly retryAt: number;
-  constructor(code: string, retryAt: number) {
-    super(code);
-    this.code = code;
-    this.retryAt = retryAt;
-  }
-}
-
-export type Recipient = { to: string; label?: string; deliver: (post: Post) => Promise<void> };
+export type Recipient = RelayRecipient<Post>;
 
 export const forward = async (
   db: DatabaseSync,

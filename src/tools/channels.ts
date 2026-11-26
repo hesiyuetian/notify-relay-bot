@@ -5,7 +5,7 @@ import { type MailConfig, sendEmail, sendTelegram } from "./notify.ts";
 
 const DEFAULT_SMTP_PORT = 465;
 
-export type TaskName = "github-trending" | "ai-news" | "stocks" | "telegram-email";
+export type TaskName = "github-trending" | "ai-news" | "stocks" | "telegram-email" | "binance-copy";
 export type PushChannel = "telegram" | "email" | "feishu" | "wechat";
 
 type TaskChannelSpec = {
@@ -13,6 +13,7 @@ type TaskChannelSpec = {
   readonly supported: readonly PushChannel[];
   readonly defaults: readonly PushChannel[];
 };
+const RELAY_CHANNELS = ["email", "wechat", "feishu"] as const;
 
 /**
  * 各任务的默认推送渠道与自定义环境变量。
@@ -20,6 +21,7 @@ type TaskChannelSpec = {
  * 环境变量未设置或为空时使用 defaults；设置时用英文或中文逗号分隔渠道名。
  */
 export const TASK_CHANNELS: Record<TaskName, TaskChannelSpec> = {
+  // github 涨星榜
   "github-trending": {
     envVar: "GITHUB_TRENDING_CHANNELS",
     supported: ["telegram"],
@@ -30,15 +32,23 @@ export const TASK_CHANNELS: Record<TaskName, TaskChannelSpec> = {
     supported: ["telegram"],
     defaults: ["telegram"],
   },
+  // 股票
   stocks: {
     envVar: "STOCKS_CHANNELS",
     supported: ["telegram", "email", "feishu"],
     defaults: ["telegram", "email", "feishu"],
   },
+  // 熬鹰资本 tg 频道 仓位同步推送
   "telegram-email": {
     envVar: "TELEGRAM_RELAY_CHANNELS",
-    supported: ["email", "wechat", "feishu"],
-    defaults: ["email", "wechat", "feishu"],
+    supported: RELAY_CHANNELS,
+    defaults: RELAY_CHANNELS,
+  },
+  // 熬鹰资本 最新操作
+  "binance-copy": {
+    envVar: "BINANCE_COPY_CHANNELS",
+    supported: RELAY_CHANNELS,
+    defaults: RELAY_CHANNELS,
   },
 };
 
@@ -47,6 +57,7 @@ export const env = (name: string): string | undefined => process.env[name]?.trim
 export const enabledChannels = (task: TaskName): Set<PushChannel> => {
   const spec = TASK_CHANNELS[task];
   const raw = env(spec.envVar);
+  if (!raw && task === "binance-copy") return enabledChannels("telegram-email");
   if (!raw) return new Set(spec.defaults);
   const supported = new Set<string>(spec.supported);
   const parsed = splitList(raw).map((item) => item.toLowerCase());
