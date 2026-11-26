@@ -10,7 +10,7 @@ import {
 import { sendFeishu } from "../tools/feishu.ts";
 import { sendEmail } from "../tools/notify.ts";
 import { relayRecipients } from "../tools/relay.ts";
-import { channelUsername, fetchPage, formatPost } from "./channel.ts";
+import { channelUsername, fetchPage, formatPost, shouldForwardPost } from "./channel.ts";
 import { forward } from "./forward.ts";
 import { sendWeChat } from "./wechat.ts";
 
@@ -29,7 +29,11 @@ await runMain(async () => {
     if (!preview && testWeChat && !sendKey) throw new Error("个人微信推送已暂停或未配置 SERVERCHAN_SENDKEY");
     if (!preview && testEmail && !mailboxes.length) throw new Error("请配置 SMTP 邮箱和 MAIL_TO");
     const { posts } = await readPage();
-    const latest = posts.reduce((a, b) => a.id > b.id ? a : b);
+    const [latest] = posts.filter(shouldForwardPost).sort((a, b) => b.id - a.id);
+    if (!latest) {
+      console.log("频道最新一页没有符合转发条件的帖子");
+      return;
+    }
     const mail = formatPost(latest);
     console.log(mail.text);
     if (preview) return;

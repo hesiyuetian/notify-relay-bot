@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { DeliveryDeferred } from "../tools/delivery.ts";
 import type { Recipient as RelayRecipient } from "../tools/relay.ts";
-import { since, type Page, type Post } from "./channel.ts";
+import { shouldForwardPost, since, type Page, type Post } from "./channel.ts";
 
 export type Recipient = RelayRecipient<Post>;
 
@@ -47,7 +47,7 @@ export const forward = async (
       db.exec("BEGIN IMMEDIATE");
       try {
         if (Number(lookup.get(key)!.last_id) < post.id) {
-          await target.deliver(post);
+          if (shouldForwardPost(post)) await target.deliver(post);
           advance.run(post.id, key);
         }
         db.exec("COMMIT");

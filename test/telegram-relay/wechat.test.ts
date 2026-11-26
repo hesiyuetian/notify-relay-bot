@@ -5,7 +5,12 @@ import { forward, type Recipient } from "../../src/telegram-relay/forward.ts";
 import { sendWeChat } from "../../src/telegram-relay/wechat.ts";
 import type { Post } from "../../src/telegram-relay/channel.ts";
 
-const post = (id: number): Post => ({ channel: "aoying999", id, date: "2026-11-25T10:00:00Z", text: "加仓 · 测试" });
+const post = (id: number): Post => ({
+  channel: "aoying999",
+  id,
+  date: "2026-11-25T10:00:00Z",
+  text: "【熬鹰币安实盘】\n加仓 · 测试\n【加仓量】 1",
+});
 
 test("微信测试只使用方糖服务号，检查 HTTP 和业务返回码", async (t) => {
   const responses = [

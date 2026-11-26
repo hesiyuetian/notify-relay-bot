@@ -3,6 +3,8 @@ import { withRetry } from "../tools/async.ts";
 import { escapeHtml } from "../tools/html.ts";
 
 const DEFAULT_CHANNEL = "aoying999";
+const LIVE_TRADING_HEADER = /^【[^【】]+实盘】$/;
+const AOYING_PROMO_LINE = /^✅\s*点击(?:欧易币安绑定|订阅其它大神开单通知群)/;
 
 export const channelUsername = (input?: string): string => {
   const value = input?.trim() || DEFAULT_CHANNEL;
@@ -13,6 +15,10 @@ export const channelUsername = (input?: string): string => {
 
 export type Post = { channel: string; id: number; date: string; text: string };
 export type Page = { posts: Post[]; before?: number };
+
+export const shouldForwardPost = (post: Post): boolean =>
+  post.channel !== DEFAULT_CHANNEL ||
+  LIVE_TRADING_HEADER.test(post.text.split(/\r?\n/, 1)[0].trim());
 
 export const parsePage = (html: string, channel: string): Page => {
   const { document } = parseHTML(html);
@@ -60,14 +66,19 @@ export const since = async (first: Page, cursor: number, readPage: (before?: num
 export const formatPost = (post: Post) => {
   const url = `https://t.me/${post.channel}/${post.id}`;
   const timestamp = new Date(post.date).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false });
-  const metadata = `@${post.channel} · #${post.id} · 北京时间 ${timestamp}`;
-  const lines = post.text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  const headline = post.channel === DEFAULT_CHANNEL && lines[0] === "【熬鹰币安实盘】" && lines[1] ? lines[1] : lines[0];
+  const metadata = `@${post.channel} · #${post.id} · 北京时间 ${timestamp}\n来源 - 频道消息`;
+  const body = post.channel === DEFAULT_CHANNEL
+    ? post.text.split(/\r?\n/).filter((line) => !AOYING_PROMO_LINE.test(line.trim())).join("\n").trimEnd()
+    : post.text;
+  const lines = body.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const headline = post.channel === DEFAULT_CHANNEL && LIVE_TRADING_HEADER.test(lines[0])
+    ? lines[1] ?? lines[0]
+    : lines[0];
   return {
     subject: post.channel === DEFAULT_CHANNEL
       ? `【熬鹰频道】${headline.slice(0, 80)} (#${post.id})`
       : `${headline.slice(0, 80)} · @${post.channel} (#${post.id})`,
-    text: `${metadata}\n\n${post.text}\n\n原帖 ${url}`,
-    html: `<p>${escapeHtml(metadata)}</p><p>${escapeHtml(post.text).replaceAll("\n", "<br>")}</p><p><a href="${url}">查看 Telegram 原帖</a></p>`,
+    text: `${metadata}\n\n${body}\n\n原帖 ${url}`,
+    html: `<p>${escapeHtml(metadata).replaceAll("\n", "<br>")}</p><p>${escapeHtml(body).replaceAll("\n", "<br>")}</p><p><a href="${url}">查看 Telegram 原帖</a></p>`,
   };
 };

@@ -54,7 +54,7 @@ GitHub 没有 Trending 官方 API，所以脚本解析 Trending 页面（约 25 
 
 1. 打开目标飞书群，在群设置的「群机器人」里添加「自定义机器人」，复制 Webhook。选择「签名校验」时，同时复制签名密钥。如使用自定义关键词，确保要接收的通知正文或标题包含其中一个关键词。[飞书配置说明](https://open.feishu.cn/document/client-docs/bot-v3/add-custom-bot)
 2. GitHub Actions 在仓库 Secrets 中添加 `FEISHU_WEBHOOK_URL` 和启用签名时所需的 `FEISHU_WEBHOOK_SECRET`。PM2 或系统 cron 在服务器 `.env` 填写同名变量。修改 PM2 配置后重跑 `./deploy/pm2-deploy.sh`，系统 cron 的下一次任务会读取新配置。
-3. 在 Actions 的「Telegram 频道转发」选择 `test-feishu`，或在安装依赖并编译的服务器上运行下面的命令。该命令向飞书发送一条带「[测试]」的最新消息，正式投递进度独立保存。
+3. 在 Actions 的「Telegram 频道转发」选择 `test-feishu`，或在安装依赖并编译的服务器上运行下面的命令。该命令从最新一页选取符合转发条件的最新帖子，向飞书发送一条带「[测试]」的通知。该页没有符合条件的帖子时只打印提示。正式投递进度独立保存。
 
 ```bash
 node --env-file=.env dist/telegram-relay/main.js --test-feishu
@@ -62,15 +62,16 @@ node --env-file=.env dist/telegram-relay/main.js --test-feishu
 
 ## Telegram 频道转邮箱、个人微信和飞书
 
-`telegram-relay.yml` 读取一个公开频道，按已配置的渠道转发新帖。通知包含频道发布时间（北京时间）、正文和原帖链接，纯媒体帖通过原帖查看。邮件收件人沿用 `MAIL_TO`，多个地址分别投递，发件使用上表的 SMTP 配置。默认频道为 [@aoying999](https://t.me/s/aoying999)。
+`telegram-relay.yml` 读取一个公开频道，按已配置的渠道转发新帖。通知包含频道发布时间（北京时间）、`来源 - 频道消息` 标记、正文和原帖链接，纯媒体帖通过原帖查看。邮件收件人沿用 `MAIL_TO`，多个地址分别投递，发件使用上表的 SMTP 配置。默认频道为 [@aoying999](https://t.me/s/aoying999)。
 
+- **熬鹰频道仓位筛选**：对 `@aoying999`，正文首行符合 `【任意名称实盘】` 格式即可转发，例如 `【熬鹰币安实盘】` 或 `【星辰实盘】`。会员群推广等帖子直接跳过，仓位通知里的交易所绑定和订阅推广也会移除。更换到其他公开频道时，转发该频道的新帖。
 - **更换订阅频道**：在仓库 Actions Variables 编辑 `TELEGRAM_CHANNEL`，可填 `aoying999`、`@aoying999` 或 `https://t.me/s/aoying999`。下一次运行使用新值，邮箱、微信和飞书同步切换。首次使用的频道从当时最新帖开始，切回曾用频道时从之前的进度补发。本地运行在 `.env` 设置同名变量。[仓库 Actions Variables](https://github.com/hesiyuetian/notify-relay-bot/settings/variables/actions)
-- **测试到达**：在 Actions 选择「Telegram 频道转发」，运行默认的 `test`，会把最新一条发到 `MAIL_TO`，标题带「[测试]」。本地只预览可用 `npm run telegram-email:dry-run`。
+- **测试到达**：在 Actions 选择「Telegram 频道转发」，运行默认的 `test`，会把最新一页中符合转发条件的最新一条发到 `MAIL_TO`，标题带「[测试]」。本地只预览可用 `npm run telegram-email:dry-run`，按同样的规则选帖。
 - **个人微信**：在 Server酱 Turbo 的「消息通道」绑定方糖服务号。在 GitHub Actions Secrets 或服务器 `.env` 配置 `SERVERCHAN_SENDKEY`。个人微信默认暂停。在 GitHub Actions Variables 或服务器 `.env` 将 `WECHAT_PUSH_ENABLED` 设为 `true` 即可启用，设为 `false` 暂停。PM2 部署修改后需重启调度器。启用后可用 `test-wechat` 发送一条测试通知，恢复推送时沿用已有投递进度。[Server酱 Turbo](https://sct.ftqq.com/sendkey/)
-- 微信首次启用时从当前最新帖开始，之后每条新帖都发给个人微信。邮箱和微信分别记录进度，发送失败时保留该渠道的待发帖子。Server酱接受请求后进度才会推进。免费版每天 5 条，日额度用尽后可能积压；服务返回限流时会延后重试。[服务额度与限制](https://sct.ftqq.com/docs/getting-started/faq/)
+- 微信首次启用时从当前最新帖建立进度，之后发送符合转发条件的新帖。邮箱和微信分别记录进度，发送失败时保留该渠道的待发帖子。Server酱接受请求后记录该帖已处理。免费版每天 5 条，日额度用尽后可能积压；服务返回限流时会延后重试。[服务额度与限制](https://sct.ftqq.com/docs/getting-started/faq/)
 - **每分钟检查**：在 [cron-job.org 控制台](https://console.cron-job.org/) 复制本仓库已有的定时推送任务，名称改为「Telegram 频道转发」，URL 改为 `https://api.github.com/repos/hesiyuetian/notify-relay-bot/actions/workflows/telegram-relay.yml/dispatches`，周期选择 **Every minute**（`* * * * *`）。保留原有 GitHub 授权请求头、POST 方法，正文设为 `{"ref":"main","inputs":{"mode":"scheduled"}}`。启用后可在任务历史中查看每次调用结果，在 GitHub Actions 查看实际检查和发送结果。已有任务可直接编辑 URL，改为新的工作流文件名。
 - **正式运行**：每次调用检查一次。GitHub 自带计划每 5 分钟兜底，两个入口共用进度。调度排队、网络或发信耗时可能使实际到达超过一分钟。每个新收件人从首次检查时的最新帖开始，后续按编号从旧到新补发。频道编辑和删除不会触发邮件。
-- **发送进度**：Actions 自动创建 `telegram-email-state` 独立分支，需允许工作流向该分支写入。进度库保存收件人地址哈希和帖子编号。并发任务排队；某个邮箱发送失败会在下次检查时重试。如果 SMTP 已接受邮件后任务突然中止，或保存分支失败，下次可能重复发送。
+- **发送进度**：Actions 自动创建 `telegram-email-state` 独立分支，需允许工作流向该分支写入。进度库保存收件人地址哈希和已处理的帖子编号，包含成功投递的帖子和被筛选跳过的帖子。并发任务排队；某个邮箱发送失败会在下次检查时重试。如果 SMTP 已接受邮件后任务突然中止，或保存分支失败，下次可能重复发送。
 - **本地运行**：在常开设备上先执行 `npm run build`，再用系统定时器每分钟从项目根目录运行一次 `node --env-file=.env dist/telegram-relay/main.js`。保留本地 `.telegram-email/` 目录。请在 Actions 和本地之间选一个正式运行位置，各自的进度独立。
 
 ## 币安合约带单成交监控（仅服务器运行）
