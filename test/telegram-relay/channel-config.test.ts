@@ -69,7 +69,7 @@ test("切换频道时微信与飞书按各自进度发送，飞书测试不建�
     assert.doesNotMatch(testRun, /TEST_SEND/);
     assert.equal(existsSync(join(dir, ".telegram-email")), false);
     assert.doesNotMatch(check("", "aoying999", 134), /TEST_SEND/);
-    assert.equal(check("@NewsFeed", "newsfeed", 10).trim(), "检查 Telegram 频道 @newsfeed");
+    assert.equal(check("@NewsFeed", "newsfeed", 10).trim(), "");
     assert.match(check("https://t.me/s/newsfeed", "newsfeed", 11), /TEST_SEND [^\n]*@newsfeed[\s\S]+https:\/\/t.me\/newsfeed\/11/);
     assert.match(check("AOYING999", "aoying999", 135), /TEST_SEND [^\n]*熬鹰频道[\s\S]+aoying999\/135/);
     assert.doesNotMatch(check("newsfeed", "newsfeed", 11), /TEST_SEND|FEISHU_SEND/);

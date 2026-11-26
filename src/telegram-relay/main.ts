@@ -17,7 +17,6 @@ import { sendWeChat } from "./wechat.ts";
 await runMain(async () => {
   const channel = channelUsername(env("TELEGRAM_CHANNEL"));
   const readPage = (before?: number) => fetchPage(channel, before);
-  console.log(`检查 Telegram 频道 @${channel}`);
   const preview = process.argv.includes("--dry-run");
   const testEmail = process.argv.includes("--test-email");
   const testWeChat = process.argv.includes("--test-wechat");
