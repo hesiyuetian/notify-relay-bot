@@ -56,3 +56,4 @@ jobs:
           MAIL_TO: ${{ secrets.MAIL_TO }}
           FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
           FEISHU_WEBHOOK_SECRET: ${{ secrets.FEISHU_WEBHOOK_SECRET }}
+          GITHUB_TRENDING_CHANNELS: ${{ vars.GITHUB_TRENDING_CHANNELS }}

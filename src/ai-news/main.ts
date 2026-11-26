@@ -22,7 +22,7 @@ const main = async (): Promise<void> => {
 
   if (process.argv.includes("--dry-run")) return;
 
-  await pushToAll({
+  await pushToAll("ai-news", {
     subject: `🤖 AI 圈今日要闻 Top ${digest.entries.length} · ${date}`,
     telegram: toNewsTelegramHtml(digest, date),
     email: toNewsEmailHtml(digest, date),

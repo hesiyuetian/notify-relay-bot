@@ -1,13 +1,13 @@
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { Cron } from "croner";
-import { configuredFeishu, configuredMailboxes, configuredWeChatKey, env } from "./tools/channels.ts";
+import { configuredChannelsFor, type TaskName } from "./tools/channels.ts";
 import { splitList } from "./tools/list.ts";
 
 process.chdir(fileURLToPath(new URL("../", import.meta.url)));
 process.loadEnvFile(".env");
 
-const schedules = new Map([
+const schedules = new Map<TaskName, string>([
   ["telegram-email", "* * * * *"],
   ["github-trending", "0 22 * * *"],
   ["ai-news", "0 8 * * *"],
@@ -15,9 +15,6 @@ const schedules = new Map([
 ]);
 const tasks = splitList(process.env.PM2_TASKS ?? "telegram-email,github-trending");
 const checkOnly = process.argv.includes("--check");
-const hasMail = configuredMailboxes().length > 0;
-const hasBot = env("TELEGRAM_BOT_TOKEN") && splitList(env("TELEGRAM_CHAT_ID")).length > 0;
-const hasFeishu = Boolean(configuredFeishu());
 
 function runTask(task: string) {
   const child = spawn("./deploy/run-task.sh", [task], {
@@ -34,14 +31,14 @@ function runTask(task: string) {
 
 if (!tasks.length) throw new Error("请在 .env 的 PM2_TASKS 中指定要运行的任务");
 for (const task of tasks) {
-  if (!schedules.has(task)) throw new Error(`PM2_TASKS 包含未知任务：${task}`);
-  if (!hasMail && !hasFeishu && !(task === "telegram-email" ? configuredWeChatKey() : hasBot)) {
+  if (!schedules.has(task as TaskName)) throw new Error(`PM2_TASKS 包含未知任务：${task}`);
+  if (configuredChannelsFor(task as TaskName).length === 0) {
     throw new Error(`请在 .env 中为 ${task} 配置可用的推送渠道`);
   }
 }
 
 for (const task of tasks) {
-  const pattern = schedules.get(task)!;
+  const pattern = schedules.get(task as TaskName)!;
   const job = new Cron(pattern, { timezone: "Asia/Shanghai", paused: checkOnly }, () => runTask(task));
   if (checkOnly) {
     const next = job.nextRun()!.toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false });

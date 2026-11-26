@@ -64,3 +64,4 @@ jobs:
           MAIL_TO: ${{ secrets.MAIL_TO }}
           FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
           FEISHU_WEBHOOK_SECRET: ${{ secrets.FEISHU_WEBHOOK_SECRET }}
+          AI_NEWS_CHANNELS: ${{ vars.AI_NEWS_CHANNELS }}

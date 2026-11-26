@@ -58,6 +58,7 @@ jobs:
           MAIL_TO: ${{ secrets.MAIL_TO }}
           FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
           FEISHU_WEBHOOK_SECRET: ${{ secrets.FEISHU_WEBHOOK_SECRET }}
+          TELEGRAM_RELAY_CHANNELS: ${{ vars.TELEGRAM_RELAY_CHANNELS }}
         run: |
           if [[ "$MODE" == "test" ]]; then
             npm run telegram-email -- --test-email

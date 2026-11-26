@@ -36,7 +36,7 @@ const publish = async (message: Message, date: string): Promise<void> => {
   console.log(message.text);
   if (isDryRun) return;
   await waitUntilPushTime(date);
-  await pushToAll(message);
+  await pushToAll("stocks", message);
 };
 
 /** Record why pre-market data was rejected instead of only reporting an empty result. */

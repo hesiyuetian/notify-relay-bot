@@ -41,7 +41,15 @@ test("切换频道时微信与飞书按各自进度发送，飞书测试不建�
           '<a class="tgme_widget_message_date"><time datetime="2026-11-25T00:00:00Z"></time></a></div></section>');
       };
     `);
-    const check = (value: string, source: string, id: number, args: string[] = [], failFeishu = false, wechatEnabled = "true") => {
+    const check = (
+      value: string,
+      source: string,
+      id: number,
+      args: string[] = [],
+      failFeishu = false,
+      wechatEnabled = "true",
+      relayChannels?: string,
+    ) => {
       const result = spawnSync(process.execPath, ["--import", preload, main, ...args], {
         cwd: dir, encoding: "utf8",
         env: {
@@ -49,6 +57,7 @@ test("切换频道时微信与飞书按各自进度发送，飞书测试不建�
           WECHAT_PUSH_ENABLED: wechatEnabled,
           FEISHU_WEBHOOK_URL: "https://open.feishu.cn/open-apis/bot/v2/hook/test-token",
           FAIL_FEISHU: failFeishu ? "1" : "0",
+          ...(relayChannels !== undefined ? { TELEGRAM_RELAY_CHANNELS: relayChannels } : {}),
         },
       });
       assert.equal(result.status, failFeishu ? 1 : 0, result.stderr);
@@ -74,6 +83,12 @@ test("切换频道时微信与飞书按各自进度发送，飞书测试不建�
     const resumed = check("newsfeed", "newsfeed", 13);
     assert.match(resumed, /TEST_SEND/);
     assert.doesNotMatch(resumed, /FEISHU_SEND/);
+    const feishuOnly = check("newsfeed", "newsfeed", 14, [], false, "true", "feishu");
+    assert.match(feishuOnly, /FEISHU_SEND/);
+    assert.doesNotMatch(feishuOnly, /TEST_SEND/);
+    const catchupWechat = check("newsfeed", "newsfeed", 14, [], false, "true", "wechat,feishu");
+    assert.match(catchupWechat, /TEST_SEND/);
+    assert.doesNotMatch(catchupWechat, /FEISHU_SEND/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

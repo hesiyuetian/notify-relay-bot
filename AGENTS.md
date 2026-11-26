@@ -20,7 +20,7 @@
 
 ## 配置和投递
 
-- 服务器通过项目根目录的 `.env` 配置。GitHub Actions 用 **Secrets** 保存凭据和收件人，用 **Variables** 配置 `TELEGRAM_CHANNEL` 等非敏感选项。新增配置时同步更新适用的部署入口、`.env.example` 和说明，示例只填写公开默认值或占位值。
+- 服务器通过项目根目录的 `.env` 配置。GitHub Actions 用 **Secrets** 保存凭据和收件人，用 **Variables** 配置 `TELEGRAM_CHANNEL`、`*_CHANNELS` 等非敏感选项。新增配置时同步更新适用的部署入口、`.env.example` 和说明，示例只填写公开默认值或占位值。
 - `MAIL_TO` 支持逗号分隔的多个地址，每位收件人单独投递。Telegram Bot 收件人用 `TELEGRAM_CHAT_ID`，转发来源用 `TELEGRAM_CHANNEL`，个人微信用 `SERVERCHAN_SENDKEY`。凭据、真实收件地址和聊天 ID 留在部署配置中，日志使用渠道名、收件人序号和帖子编号。
 - Telegram 频道按频道和接收端分别保存投递进度。首次启用的频道或接收端从当时的最新帖建立基线，已有进度的按帖子编号补发。只在服务接受投递后推进该接收端的进度，保留失败或限流后的重试行为。
 - 日期、显示时间和服务器排期使用 `Asia/Shanghai`。GitHub workflow 中现有 cron 表达式用 UTC，修改时做好换算。潜力股正式任务保留交易日检查和 09:15 的行情采集截止判断，默认 09:20 推送。

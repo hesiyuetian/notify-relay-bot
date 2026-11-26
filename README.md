@@ -30,11 +30,25 @@ GitHub 没有 Trending 官方 API，所以脚本解析 Trending 页面（约 25 
 
 3. 打开 **Actions** 标签 → 选「GitHub 今日涨星推送」→ **Run workflow** 手动跑一次，确认收到。之后每天自动执行。「AI 圈每日要闻推送」「每日潜力股推送」同理，潜力股手动运行时会跳过交易日判断并立即推送。
 
-邮箱、Telegram Bot 和飞书按任务支持的渠道独立配置，单独配置飞书也可以运行。频道转发另外支持个人微信。
+邮箱、Telegram Bot 和飞书按任务启用且已配置的渠道独立投递。频道转发另外支持个人微信。各任务可通过环境变量或 GitHub Actions Variables 自定义推送渠道。
+
+## 任务推送渠道
+
+每个任务在 `src/tools/channels.ts` 中定义了默认推送渠道，也可以在服务器 `.env` 或仓库 **Settings → Secrets and variables → Actions → Variables** 中覆盖（英文逗号分隔；留空使用默认值）：
+
+| 任务              | 变量名                     | 可选渠道                   | 默认值                  |
+| ----------------- | -------------------------- | -------------------------- | ----------------------- |
+| `github-trending` | `GITHUB_TRENDING_CHANNELS` | `telegram`, `email`, `feishu` | `telegram,email`（不推飞书） |
+| `ai-news`         | `AI_NEWS_CHANNELS`         | `telegram`, `email`, `feishu` | `telegram,email,feishu` |
+| `stocks`          | `STOCKS_CHANNELS`          | `telegram`, `email`, `feishu` | `telegram,email,feishu` |
+| `telegram-email`  | `TELEGRAM_RELAY_CHANNELS`  | `email`, `wechat`, `feishu`   | `email,wechat,feishu`   |
+
+- 只有同时满足「在任务推送渠道中启用」和「已配置对应凭据」的渠道才会发送（个人微信另需 `WECHAT_PUSH_ENABLED=true`）。
+- 填写不支持的渠道名会在运行或 PM2 预检时报错；`telegram-relay` 的 `--test-*` 测试命令只检查被测试渠道本身，不受 `TELEGRAM_RELAY_CHANNELS` 限制。
 
 ## 飞书群推送
 
-四个任务都支持推送到同一个配置的飞书群。新启用的飞书接收端从 Telegram 频道当时的最新帖建立基线，之后按帖子编号独立保存投递进度。
+四个任务都支持推送到同一个配置的飞书群（其中 GitHub 今日涨星默认关闭飞书推送，可在上方 `GITHUB_TRENDING_CHANNELS` 中按需开启）。新启用的飞书接收端从 Telegram 频道当时的最新帖建立基线，之后按帖子编号独立保存投递进度。
 
 1. 打开目标飞书群，在群设置的「群机器人」里添加「自定义机器人」，复制 Webhook。选择「签名校验」时，同时复制签名密钥。如使用自定义关键词，确保要接收的通知正文或标题包含其中一个关键词。[飞书配置说明](https://open.feishu.cn/document/client-docs/bot-v3/add-custom-bot)
 2. GitHub Actions 在仓库 Secrets 中添加 `FEISHU_WEBHOOK_URL` 和启用签名时所需的 `FEISHU_WEBHOOK_SECRET`。PM2 或系统 cron 在服务器 `.env` 填写同名变量。修改 PM2 配置后重跑 `./deploy/pm2-deploy.sh`，系统 cron 的下一次任务会读取新配置。

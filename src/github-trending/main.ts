@@ -20,7 +20,7 @@ const main = async (): Promise<void> => {
 
   if (process.argv.includes("--dry-run")) return;
 
-  await pushToAll({
+  await pushToAll("github-trending", {
     subject: `📈 GitHub 今日涨星 Top ${repos.length} · ${date}`,
     telegram: toTelegramHtml(repos, date),
     email: toEmailHtml(repos, date),
